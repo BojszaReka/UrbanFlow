@@ -1,0 +1,260 @@
+﻿<Page x:Class="Urbanflow.src.frontend.pages.GraphPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:Urbanflow.src.frontend.pages"
+      mc:Ignorable="d" 
+      Background="White"
+      Height="Auto" Width="Auto"
+      Title="GraphPage">
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/src/frontend/resources/Buttons.xaml"/>
+                <ResourceDictionary Source="/src/frontend/resources/Colors.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="4*"/>
+            <!-- Graph View -->
+            <ColumnDefinition Width="2*"/>
+            <!-- Side Panel -->
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- GRAPH AREA -->
+        <Grid Margin="10" Grid.Column="0" Grid.Row="0" >
+            <Grid.RowDefinitions>
+                <RowDefinition Height="1*"/>
+                <!-- Graph Tabs -->
+                <RowDefinition Height="10*"/>
+                <!-- Graph Canvas -->
+            </Grid.RowDefinitions>
+
+            <!-- Graph Tabs -->
+            <StackPanel Orientation="Horizontal"
+                         HorizontalAlignment="Center"
+                         Margin="0,0,0,12"
+                         Grid.Row="0"
+                         Height="50">
+                <Button Content="Teljes Hálózat Grafikon"
+                         Style="{StaticResource AccentGreenButton}" Height="33" Margin="5" Width="180" />
+                <Button Content="Specifikus Útvonal Grafikon"
+                         Style="{StaticResource GreyButton}" Height="33"  Margin="5" Width="180"/>
+            </StackPanel>
+
+            <!-- Graph Canvas -->
+            <Border Grid.Row="1" 
+             CornerRadius="8"
+             BorderBrush="{StaticResource AccentBrush}"
+             BorderThickness="2"
+             SnapsToDevicePixels="True"
+             >
+
+                <!-- Use Grid to separate center and bottom -->
+                <Grid>
+                    <!-- Center content -->
+                    <StackPanel
+                 VerticalAlignment="Center"
+                 HorizontalAlignment="Center"
+                 TextBlock.TextAlignment="Center">
+
+                        <TextBlock Text="🧩" FontSize="48" Foreground="{StaticResource GreyBrush}" TextAlignment="Center"/>
+                        <TextBlock Text="Nincsenek gráf adatok"
+                        FontSize="16"
+                        FontWeight="Bold"
+                        TextAlignment="Center"
+                        Margin="0,10,0,0"/>
+                        <TextBlock Text="Hozzon létre egy új gráfot vagy importáljon egyet a kezdéshez."
+                        FontSize="13"
+                        Foreground="{StaticResource GreyBrush}"
+                        TextAlignment="Center"
+                        MaxWidth="320"
+                        TextWrapping="Wrap"
+                        Margin="0,10,0,10"/>
+                        <Button Content="Új gráf létrehozása"
+                         Style="{StaticResource AccentGreenButton}"
+                         Margin="0,10,0,0"
+                         Width="180"
+                         Height="25"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+        </Grid>
+
+        <!-- ====================================================== -->
+        <!-- RIGHT SIDEBAR PANEL -->
+        <!-- ====================================================== -->
+        <Border
+                 BorderThickness="1,0,0,0"
+                 Padding="20"
+                 Grid.Column="1" Grid.Row="0">
+            <StackPanel Width="Auto" HorizontalAlignment="Stretch">
+                <Grid VerticalAlignment="Top" Margin="0,0,0,10" HorizontalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="6*"/>
+                        <!-- Graph View -->
+                        <ColumnDefinition Width="4*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0" Content="Csomópont hozzáadása" Style="{StaticResource AccentGreenButton}" Height="25" Margin="3" Width="Auto" MinWidth="150" HorizontalAlignment="Stretch"/>
+
+                    <Button Grid.Column="1"  Content="Él hozzáadása" Style="{StaticResource AccentGreenButton}" Height="25" Margin="3" Width="Auto" MinWidth="100" HorizontalAlignment="Stretch"/>
+                </Grid>
+                <StackPanel >
+
+                </StackPanel>
+
+                <Border BorderBrush="#E5E7EB" BorderThickness="0,0,0,3"/>
+
+                <!-- Node Properties -->
+                <Expander Header="Csomópont adatainak szerkesztése" IsExpanded="True" Foreground="{StaticResource TextLightBrush}"
+                           Background="{StaticResource TransparentGreyBrush}"
+                           Padding="8"
+                           FontWeight="SemiBold"
+                       Margin="0,10,0,10">
+                    <StackPanel Margin="6,4,0,0" >
+                        <TextBlock Text="Szerkeszteni kívánt csomópont"
+                                    FontSize="12" Foreground="{StaticResource GreyBrush}" TextWrapping="Wrap"/>
+                        <ComboBox Grid.Column="1"
+                           Foreground="{StaticResource TextLightBrush}"
+                           Background="White"
+                           BorderThickness="0"
+                           Padding="4"
+                           HorizontalContentAlignment="Left"
+                           VerticalContentAlignment="Center"
+                           HorizontalAlignment="Stretch"
+                           Margin="0,0,8,0"
+                           Cursor="Hand">
+
+                            <!-- Hint item (disabled or default) -->
+                            <ComboBoxItem IsEnabled="False" IsSelected="True" IsHitTestVisible="False" Foreground="Gray">Csomópont választása</ComboBoxItem>
+
+                            <!-- Actual options -->
+                            <ComboBoxItem>1es megálló</ComboBoxItem>
+                            <ComboBoxItem>2es megálló</ComboBoxItem>
+                            <ComboBoxItem>3as megálló</ComboBoxItem>
+                        </ComboBox>
+                        <StackPanel >
+                            <StackPanel Margin="0,10,0,5">
+                                <TextBlock Text="Név" FontSize="12" Foreground="{StaticResource GreyBrush}"/>
+                                <TextBox Text="Központi pályaudvar"
+                                          Margin="0,2,0,0"
+                                          Padding="4"
+                                          FontSize="13"
+                                          Background="White"
+                                          BorderBrush="White"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,5,0,5">
+                                <TextBlock Text="Helyszín" FontSize="12" Foreground="{StaticResource GreyBrush}"/>
+                                <TextBox Text="Város, Fő utca 123"
+                                          Margin="0,2,0,0"
+                                          Padding="4"
+                                          FontSize="13"
+                                          Background="White"
+                                          BorderBrush="White"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <Button Content="Mentés" HorizontalAlignment="Center" Margin="0,10,0,10" Style="{StaticResource AccentGreenButton}" Height="25"/>
+                    </StackPanel>
+                </Expander>
+
+                <!-- Edge Properties -->
+                <Expander Header="Él adatainak szerkesztése" Foreground="{StaticResource TextLightBrush}"
+                           Background="{StaticResource TransparentGreyBrush}"
+                           Padding="8"
+                           FontWeight="SemiBold"
+                           Margin="0,10,0,10"
+                           IsExpanded="True">
+                    <StackPanel Margin="6,4,0,0" >
+                        <TextBlock Text="Szerkeszteni kívánt él"
+                                    FontSize="12" Foreground="{StaticResource GreyBrush}" TextWrapping="Wrap" Margin="0,0,0,5"/>
+                        <ComboBox Grid.Column="1"
+                           Foreground="{StaticResource TextLightBrush}"
+                           Background="White"
+                           BorderThickness="0"
+                           Padding="4"
+                           HorizontalContentAlignment="Left"
+                           VerticalContentAlignment="Center"
+                           HorizontalAlignment="Stretch"
+                           Margin="0,0,8,0"
+                           Cursor="Hand">
+
+                            <!-- Hint item (disabled or default) -->
+                            <ComboBoxItem IsEnabled="False" IsSelected="True" IsHitTestVisible="False" Foreground="Gray">Él választása</ComboBoxItem>
+
+                            <!-- Actual options -->
+                            <ComboBoxItem>#1</ComboBoxItem>
+                            <ComboBoxItem>#2</ComboBoxItem>
+                            <ComboBoxItem>#3</ComboBoxItem>
+                        </ComboBox>
+                        <StackPanel >
+                            <StackPanel Margin="0,10,0,5">
+                                <TextBlock Text="Honnan" FontSize="12" Foreground="{StaticResource GreyBrush}" Margin="0,0,0,2"/>
+                                <ComboBox Grid.Column="1"
+                                   Foreground="{StaticResource TextLightBrush}"
+                                   Background="White"
+                                   BorderThickness="0"
+                                   Padding="4"
+                                   HorizontalContentAlignment="Left"
+                                   VerticalContentAlignment="Center"
+                                   HorizontalAlignment="Stretch"
+                                   Margin="0,0,8,0"
+                                   Cursor="Hand">
+
+                                    <!-- Hint item (disabled or default) -->
+                                    <ComboBoxItem IsEnabled="False" IsSelected="True" IsHitTestVisible="False" Foreground="Gray">Csomópont választása</ComboBoxItem>
+
+                                    <!-- Actual options -->
+                                    <ComboBoxItem>1es megálló</ComboBoxItem>
+                                    <ComboBoxItem>2es megálló</ComboBoxItem>
+                                    <ComboBoxItem>3as megálló</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Margin="0,5,0,5">
+                                <TextBlock Text="Hova" FontSize="12" Foreground="{StaticResource GreyBrush}" Margin="0,0,0,2"/>
+                                <ComboBox Grid.Column="1"
+                                   Foreground="{StaticResource TextLightBrush}"
+                                   Background="White"
+                                   BorderThickness="0"
+                                   Padding="4"
+                                   HorizontalContentAlignment="Left"
+                                   VerticalContentAlignment="Center"
+                                   HorizontalAlignment="Stretch"
+                                   Margin="0,0,8,0"
+                                   Cursor="Hand">
+
+                                    <!-- Hint item (disabled or default) -->
+                                    <ComboBoxItem IsEnabled="False" IsSelected="True" IsHitTestVisible="False" Foreground="Gray">Csomópont választása</ComboBoxItem>
+
+                                    <!-- Actual options -->
+                                    <ComboBoxItem>1es megálló</ComboBoxItem>
+                                    <ComboBoxItem>2es megálló</ComboBoxItem>
+                                    <ComboBoxItem>3as megálló</ComboBoxItem>
+                                </ComboBox>
+                            </StackPanel>
+                            <StackPanel Margin="0,5,0,5">
+                                <TextBlock Text="Menetidő (perc)" FontSize="12" Foreground="{StaticResource GreyBrush}" Margin="0,0,0,2"/>
+                                <TextBox Text="12"
+                                          Margin="0,2,0,0"
+                                          Padding="4"
+                                          FontSize="13"
+                                          Background="White"
+                                          BorderBrush="White"/>
+                            </StackPanel>
+                            <Button Content="Mentés" HorizontalAlignment="Center" Margin="0,10,0,10" Style="{StaticResource AccentGreenButton}" Height="25"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Page>

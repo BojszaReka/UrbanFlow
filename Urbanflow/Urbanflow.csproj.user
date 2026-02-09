@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup />
+  <ItemGroup>
+    <Compile Update="MainWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="src\frontend\dialogs\AddCityDialog.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="src\frontend\dialogs\AddWorkflowDialog.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="src\frontend\dialogs\EditWorkflowDialog.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="src\frontend\pages\GraphPage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="src\frontend\pages\MapPage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="src\frontend\pages\NetworkPage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="src\frontend\pages\OptimizationPage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="src\frontend\pages\WelcomePage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="src\frontend\pages\WorkflowPage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="src\frontend\windows\SidebarWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+</Project>

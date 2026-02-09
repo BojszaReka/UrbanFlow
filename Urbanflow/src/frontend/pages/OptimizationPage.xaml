@@ -1,0 +1,280 @@
+﻿<Page x:Class="Urbanflow.src.frontend.pages.OptimizationPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:Urbanflow.src.frontend.pages"
+      xmlns:ui="http://schemas.modernwpf.com/2019"
+      mc:Ignorable="d" 
+      Background="White"
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="OptimizationPage">
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/src/frontend/resources/Buttons.xaml"/>
+                <ResourceDictionary Source="/src/frontend/resources/Colors.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="380"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ==================== LEFT PANEL ==================== -->
+        <Border Grid.Column="0"
+                BorderBrush="#E5E7EB"
+                BorderThickness="0,0,1,0"
+                Padding="24"
+                >
+            <DockPanel LastChildFill="True">
+                <!-- Bottom Buttons -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,24,0,0" Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button Content="Beállítások mentése"
+                            Style="{StaticResource GreyButton}"
+                            Width="140"
+                            Height="30"
+                            />
+                    <Button Content="Optimalizálás futtatása"
+                            Style="{StaticResource AccentGreenButton}"
+                            Height="30"
+                            Width="140"
+                            Margin="10,0,0,0"/>
+                </StackPanel>
+
+                <!-- Main Settings Content -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,0,0,12">
+
+                        <!-- Page Heading -->
+                        <StackPanel Margin="0,0,0,24">
+                            <TextBlock Text="Optimalizációs beállítások"
+                                       FontSize="22"
+                                       FontWeight="Bold"
+                                       Foreground="#1E1E1E"/>
+                            <TextBlock Text="Konfigurálja az optimalizálási folyamat paramétereit."
+                                       FontSize="14"
+                                       Foreground="#7F8C8D"/>
+                        </StackPanel>
+
+                        <!-- Form Fields -->
+                        <StackPanel Margin="0,0,0,24" >
+
+                            <Expander Header="Hálózat specifikus adatok" IsExpanded="False" Foreground="{StaticResource TextLightBrush}"
+                              Background="{StaticResource TransparentGreyBrush}"
+                              Padding="8"
+                              FontWeight="SemiBold"
+                              Margin="0,10,0,10">
+
+                                <StackPanel>
+                                    <!-- Maximum Transfers -->
+                                    <StackPanel>
+                                        <TextBlock Text="Maximum átszállási szám"
+                                           FontSize="13"
+                                           FontWeight="Medium"
+                                           Foreground="#2C3E50"
+                                           Margin="0,0,0,4"/>
+                                        <ui:NumberBox PlaceholderText="1" SpinButtonPlacementMode="Compact" Value="1" Minimum="0"/>
+                                    </StackPanel>
+
+                                    <!-- Average Delay -->
+                                    <StackPanel Margin="0,10,0,0">
+                                        <TextBlock Text="Átlagos késés mennyisége percben"
+                                               FontSize="13"
+                                               FontWeight="Medium"
+                                               Foreground="#2C3E50"
+                                               Margin="0,0,0,4"/>
+                                        <ui:NumberBox PlaceholderText="1" SpinButtonPlacementMode="Compact" Value="1" Minimum="0"/>
+                                    </StackPanel>
+
+                                    <StackPanel Margin="0,10,0,0">
+                                        <TextBlock Text="Buszflotta mérete"
+                                           FontSize="13"
+                                           FontWeight="Medium"
+                                           Foreground="#2C3E50"
+                                           Margin="0,0,0,4"/>
+                                        <ui:NumberBox PlaceholderText="1" SpinButtonPlacementMode="Compact" Value="1" Minimum="0"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                            </Expander>
+
+                            <Expander Header="Optimalizációs beállítások" IsExpanded="False" Foreground="{StaticResource TextLightBrush}"
+                              Background="{StaticResource TransparentGreyBrush}"
+                              Padding="8"
+                              FontWeight="SemiBold"
+                              Margin="0,0,0,10">
+                                <StackPanel>
+                                    <TextBlock Text="Elsődleges szempont"
+                                        FontSize="12" Foreground="#6B7280" TextWrapping="Wrap"/>
+                                    <ComboBox
+                                          Foreground="{StaticResource TextLightBrush}"
+                                          Background="{StaticResource BackgroundLightBrush}"
+                                          BorderThickness="0"
+                                          Padding="4"
+                                          HorizontalContentAlignment="Left"
+                                          VerticalContentAlignment="Center"
+                                          HorizontalAlignment="Stretch"
+                                          Margin="0,0,8,0"
+                                          Cursor="Hand">
+
+                                        <!-- Hint item (disabled or default) -->
+                                        <ComboBoxItem IsEnabled="False" IsSelected="True" IsHitTestVisible="False" Foreground="Gray">Válassz szempontot</ComboBoxItem>
+
+                                        <!-- Actual options -->
+                                        <ComboBoxItem>Utazási idők csökkentése</ComboBoxItem>
+                                        <ComboBoxItem>Átszállások számának csökkentése</ComboBoxItem>
+                                        <ComboBoxItem>Flotta optimalizálása</ComboBoxItem>
+                                    </ComboBox>
+
+                                    <StackPanel>
+                                        <TextBlock Text="Menetrendi idő változatási eltérésének mértéke"
+                                           FontSize="13"
+                                           FontWeight="Medium"
+                                           Foreground="#2C3E50"
+                                           Margin="0,5,0,4"/>
+                                        <ui:NumberBox PlaceholderText="1" SpinButtonPlacementMode="Compact" Value="1" Minimum="0"/>
+                                    </StackPanel>
+
+                                    <!-- Toggles -->
+                                    <StackPanel Margin="0,8,0,0" >
+                                        <TextBlock Text="Ha az alábbiak nincsenek bepipálva, akkor a meglévő hálózattal gazdálkodik"
+                                           FontSize="13"
+                                           Foreground="#7F8C8D"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,4"/>
+                                        <CheckBox Width="300" IsChecked="True" Content="Új útvonalak létehozása" Height="24" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        <CheckBox Width="300" IsChecked="True" Content="Új megálló hozzáadása" Height="24" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
+                                    </StackPanel>
+                                </StackPanel>
+
+                            </Expander>
+
+                            <Expander Header="Város specifikus adatok" IsExpanded="False" Foreground="{StaticResource TextLightBrush}"
+                              Background="{StaticResource TransparentGreyBrush}"
+                              Padding="8"
+                              FontWeight="SemiBold"
+                              Margin="0,0,0,10">
+
+                                <StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Népesség"
+                                           FontSize="13"
+                                           FontWeight="Medium"
+                                           Foreground="#2C3E50"
+                                           Margin="0,0,0,6"/>
+                                        <ui:NumberBox PlaceholderText="10000" SpinButtonPlacementMode="Compact" Value="10000" Minimum="0"/>
+                                    </StackPanel>
+                                    <!-- Busier Periods -->
+                                    <StackPanel>
+                                        <TextBlock Text="Forgalmasabb időszakok"
+                                               FontSize="13"
+                                               FontWeight="Medium"
+                                               Foreground="#2C3E50"
+                                               Margin="0,10,0,4"/>
+                                        <WrapPanel Margin="0,4,0,0" ItemHeight="32" ItemWidth="Auto">
+                                            <Button Content="Reggeli dugó ✕"
+                                                Background="{StaticResource PrimaryBrushTransparent}"
+                                                Foreground="{StaticResource PrimaryBrush}"
+                                                FontSize="12"
+                                                Padding="8,4"
+                                                BorderThickness="0"
+                                                Margin="2"/>
+                                            <Button Content="Délutáni műszakváltás ✕"
+                                                Background="{StaticResource PrimaryBrushTransparent}"
+Foreground="{StaticResource PrimaryBrush}"
+                                                FontSize="12"
+                                                Padding="8,4"
+                                                BorderThickness="0"
+                                                Margin="2"/>
+                                            <Button Content="＋ Időszak hozzáadása"
+                                                Background="#E5E7EB"
+                                                Foreground="#4B5563"
+                                                FontSize="12"
+                                                Padding="8,4"
+                                                BorderThickness="0"
+                                                Margin="2"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+
+                                </StackPanel>
+
+                            </Expander>
+
+
+
+
+
+
+
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ==================== RIGHT PANEL (LOG) ==================== -->
+        <Grid Grid.Column="1" Background="{StaticResource TransparentGreyBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border BorderBrush="#555" BorderThickness="0,0,0,1" Padding="16,8" Background="{StaticResource TransparentGreyBrush}" >
+                <DockPanel>
+                    <TextBlock Text="Optimalizációs napló"
+                               FontSize="16"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextLightBrush}"
+                               DockPanel.Dock="Left"/>
+                    <Border Background="{StaticResource BackgroundLightBrush}" CornerRadius="5" Width="100" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                        <StackPanel  Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Ellipse Width="10" Height="10" Fill="{StaticResource TextLightBrush}" />
+                            <TextBlock Text="Standby"
+                               FontWeight="SemiBold"
+                               Margin="10,0,0,0"
+                               Foreground="{StaticResource TextLightBrush}"
+                               FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+                </DockPanel>
+            </Border>
+
+            <!-- Log Entries -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16">
+                <StackPanel>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Margin="5" TextWrapping="Wrap" Width="Auto"
+                               Text="[2023-10-27 10:30:00] [INFO] Starting optimization process..."
+                               Foreground="{StaticResource TextLightBrush}"/>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Margin="5" TextWrapping="Wrap" Width="Auto"
+                               Text="[2023-10-27 10:30:01] [INFO] Loading configuration from settings panel."
+                               Foreground="{StaticResource TextLightBrush}"/>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Margin="5" TextWrapping="Wrap" Width="Auto"
+                               Text="[2023-10-27 10:30:02] [INFO] Validating parameters: max transfers=3, avg delay=5min."
+                               Foreground="{StaticResource TextLightBrush}"/>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Margin="5" TextWrapping="Wrap" Width="Auto"
+                               Text="[2023-10-27 10:30:05] [INFO] Fetching route data for 'Morning Rush' and 'Evening Commute' periods."
+                               Foreground="{StaticResource TextLightBrush}"/>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Margin="5" TextWrapping="Wrap" Width="Auto"
+                               Text="[2023-10-27 10:30:15] [SUCCESS] Data for 25 routes loaded successfully."
+                               Foreground="#2ECC71"/>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Margin="5" TextWrapping="Wrap" Width="Auto"
+                               Text="[2023-10-27 10:30:25] [WARNING] High passenger congestion detected near 'Central Station' stop #412."
+                               Foreground="#F1C40F"/>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Margin="5" TextWrapping="Wrap" Width="Auto"
+                               Text="[2023-10-27 10:30:58] [ERROR] Failed to process data for bus stop #1138. Missing timetable data."
+                               Foreground="#E74C3C"/>
+                    <TextBlock FontFamily="Consolas" FontSize="12" Margin="5" TextWrapping="Wrap" Width="Auto"
+                               Text="[2023-10-27 10:31:00] [INFO] Proceeding to next route..."
+                               Foreground="{StaticResource TextLightBrush}"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Page>

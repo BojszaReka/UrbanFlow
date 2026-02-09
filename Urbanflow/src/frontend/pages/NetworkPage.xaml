@@ -1,0 +1,254 @@
+﻿<Page x:Class="Urbanflow.src.frontend.pages.NetworkPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:Urbanflow.src.frontend.pages"
+      xmlns:ui="http://schemas.modernwpf.com/2019"
+      mc:Ignorable="d" 
+      Background="White"
+      Height="Auto" Width="Auto"
+      Title="NetworkPage">
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/src/frontend/resources/Buttons.xaml"/>
+                <ResourceDictionary Source="/src/frontend/resources/Colors.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <Grid Margin="40">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="1*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left Panel: Route Settings -->
+        <StackPanel Grid.Column="0" Orientation="Vertical" >
+
+            <Border 
+                    BorderBrush="{StaticResource PrimaryBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="20"
+                    >
+                <StackPanel Orientation="Vertical" >
+                    <TextBlock Text="Járat Beállításai"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextLightBrush}" 
+                               Margin="0,0,0,10"/>
+
+                    <Grid >
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                            <TextBlock Text="Válasszon járatot" 
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextLightBrush}" />
+                            <ComboBox Height="40" x:Name="RouteNamesComboBox">
+                                <ComboBoxItem Content="Járat 1: Főpályaudvar - Kertváros" IsSelected="True"/>
+                                <ComboBoxItem Content="Járat 2: Belváros - Egyetem"/>
+                                <ComboBoxItem Content="Járat 3: Ipari Park - Repülőtér"/>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Járat nevének módosítása"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextLightBrush}" />
+                            <TextBox Height="40" Text="Járat 1: Főpályaudvar - Kertváros"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Stops Section -->
+                    <Border Background="{StaticResource PrimaryBrushTransparent}" Padding="15"  Margin="0,20,0,10" CornerRadius="10">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,10">
+                                <TextBlock Text="Megállók"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       Foreground="{StaticResource TextLightBrush}"
+                                       DockPanel.Dock="Left" />
+                                <Button Content="+ Új megálló hozzáadása"
+                                    DockPanel.Dock="Right"
+                                    Style="{StaticResource AccentGreenButton}"
+                                    Width="200"
+                                    Height="22"
+                                    Padding="8"
+                                    HorizontalAlignment="Right"
+                                    FontSize="13"
+                                    />
+                            </DockPanel>
+
+                            <StackPanel >
+                                <!-- Example Stop Item -->
+                                <Border Background="#EEF4FB" BorderBrush="{StaticResource PrimaryBrush}" BorderThickness="1" Padding="10" CornerRadius="6" Margin="5">
+                                    <DockPanel>
+                                        <StackPanel Orientation="Vertical" DockPanel.Dock="Left" Width="250">
+                                            <TextBlock Text="Központi pályaudvar" FontWeight="SemiBold" />
+                                            <TextBlock Text="Kezdő végállomás"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource PrimaryBrush}" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Width="200" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <CheckBox Content="Kötelező érintés" VerticalAlignment="Center"/>
+                                            <Button Content="🗑" Background="Transparent" BorderThickness="0" Foreground="Red" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+
+                                <Border Background="#FFFFFF" BorderBrush="{StaticResource PrimaryBrushTransparent}" BorderThickness="1" Padding="10" CornerRadius="6" Margin="5">
+                                    <DockPanel>
+                                        <TextBlock Text="Városháza tér" DockPanel.Dock="Left" Width="250" FontSize="15" VerticalAlignment="Center"/>
+                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Width="200" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <CheckBox Content="Kötelező érintés" VerticalAlignment="Center" IsChecked="True"/>
+                                            <Button Content="🗑" Background="Transparent" BorderThickness="0" Foreground="Red" Margin="10,0,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+
+                                <Border Background="#EEF4FB" BorderBrush="{StaticResource PrimaryBrush}" BorderThickness="1" Padding="10" CornerRadius="6" Margin="5">
+                                    <DockPanel>
+                                        <StackPanel Orientation="Vertical" DockPanel.Dock="Left" Width="250">
+                                            <TextBlock Text="Kertváros" FontWeight="SemiBold" />
+                                            <TextBlock Text="Cél végállomás"
+                                                   FontSize="10"
+                                                   Foreground="{StaticResource PrimaryBrush}" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" Width="200" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <CheckBox Content="Kötelező érintés" VerticalAlignment="Center"/>
+                                            <Button Content="🗑" Background="Transparent" BorderThickness="0" Foreground="Red" Margin="10,0,0,0" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Timing -->
+                    <StackPanel>
+                        <TextBlock Text="Időzítés" FontSize="18" FontWeight="Bold" Margin="0,10,0,10"/>
+                        <Grid >
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Indulási idő" FontSize="12" Foreground="{StaticResource TextLightBrush}" />
+                                <TextBox Text="06:30" Height="40" Margin="5"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Indulási gyakoriság (perc)" FontSize="12" Foreground="{StaticResource TextLightBrush}" />
+                                <TextBox Text="15" Height="40" Margin="5"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Lock Route -->
+                    <Border Background="#FFF7E6" BorderBrush="{StaticResource SecondaryBrush}" BorderThickness="1" Padding="10" CornerRadius="8" Margin="0,5,0,5">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Left">
+                                <TextBlock Text="Járat zárolása optimalizációtól" FontWeight="Bold" FontSize="14"/>
+                                <TextBlock Text="A zárolt járatot nem módosítja az optimalizáló algoritmus."
+                                           FontSize="12"
+                                           Foreground="{StaticResource TextLightBrush}"/>
+                            </StackPanel>
+                            <CheckBox Width="50" Height="25" Margin="10,0,0,0" HorizontalAlignment="Right"/>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Save Button -->
+                    <Button Content="💾 Módosítások Mentése"
+                            Style="{StaticResource LinedButton}"
+                            Padding="12,6"
+                            FontWeight="Bold"
+                            HorizontalAlignment="Center"
+                            FontSize="18"
+                            Width="300"
+                            Margin="0,30,0,0"
+                            />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- Right Panel: Network Settings -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Grid.Column="1" Margin="20,0,0,0" >
+            <StackPanel Orientation="Vertical" >
+                <Border  BorderThickness="1" Padding="20" CornerRadius="10">
+                    <StackPanel >
+                        <TextBlock Text="Teljes Hálózat Beállításai"
+                               FontSize="22"
+                               FontWeight="Bold" />
+
+                        <Expander Header="GTFS menedzsment" IsExpanded="True" Foreground="{StaticResource TextLightBrush}"
+                              Background="{StaticResource TransparentGreyBrush}"
+                              Padding="8"
+                              FontWeight="SemiBold"
+                          Margin="0,10,0,10">
+                            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Button Content="⬆️ GTFS Feltöltése" Margin="0,5,0,0" Padding="10,5" Width="350" Height="40" Style="{StaticResource LinedButton}"/>
+                                <Button Content="⬇️ GTFS Letöltése" Margin="0,5,0,0" Padding="10,5" Width="350" Height="40" Style="{StaticResource GreenButton}"/>
+
+                            </StackPanel>
+                        </Expander>
+
+
+
+
+                        <Expander Header="Buszfordulók szerkesztése" IsExpanded="True" Foreground="{StaticResource TextLightBrush}"
+                          Background="{StaticResource TransparentGreyBrush}"
+                          Padding="8"
+                          FontWeight="SemiBold"
+                      Margin="0,10,0,10">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="Jelenlegi buszfordulók" FontSize="16" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <ListBox Height="Auto">
+                                    <ListBoxItem Content="Központi pályaudvar"/>
+                                    <ListBoxItem Content="Egyetemváros"/>
+                                    <ListBoxItem Content="Repülőtér"/>
+                                </ListBox>
+                                <Button Content="➕ Új Buszforduló Hozzáadása" Margin="0,5,0,0" Padding="8,4" Width="350" Height="40" Style="{StaticResource AccentGreenButton}"/>
+                                <Button Content="🗑 Kijelölt Törlése" 
+                                        Background="#FFEAEA"
+                                        Foreground="Red"
+                                        Margin="0,5,0,0"
+                                        Padding="8,4"
+                                        Width="350" Height="40"/>
+                            </StackPanel>
+                        </Expander>
+
+                        <Expander Header="Csomópontok szerkesztése" IsExpanded="True" Foreground="{StaticResource TextLightBrush}"
+                          Background="{StaticResource TransparentGreyBrush}"
+                          Padding="8"
+                          FontWeight="SemiBold"
+                      Margin="0,10,0,10">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="Jelenlegi csomópontok" FontSize="16" FontWeight="Bold" Margin="0,0,0,5"/>
+                                <ListBox Height="Auto">
+                                    <ListBoxItem Content="Központi pályaudvar"/>
+                                    <ListBoxItem Content="Egyetemváros"/>
+                                    <ListBoxItem Content="Repülőtér"/>
+                                </ListBox>
+                                <Button Content="➕ Új Csomópont Hozzáadása" Margin="0,5,0,0" Padding="8,4" Width="350" Height="40" Style="{StaticResource AccentGreenButton}"/>
+                                <Button Content="🗑 Kijelölt Törlése"
+                                Background="#FFEAEA"
+                                Foreground="Red"
+                                Margin="0,5,0,0"
+                                Padding="8,4"
+                                Width="350" Height="40"/>
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>
