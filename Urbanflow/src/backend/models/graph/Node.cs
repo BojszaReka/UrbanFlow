@@ -31,6 +31,7 @@ namespace Urbanflow.src.backend.models.graph
 			StopId = s.Id;
 			Latitude = s.Latitude;
 			Longitude = s.Longitude;
+			SaveToDatabase();
 		}
 
 		public Node(Guid id)
@@ -55,6 +56,7 @@ namespace Urbanflow.src.backend.models.graph
 			StopId = s.Id;
 			Latitude = s.Latitude;
 			Longitude = s.Longitude;
+			SaveToDatabase();
 		}
 
 		public override string ToString()

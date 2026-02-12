@@ -12,6 +12,7 @@ namespace Urbanflow.src.backend.models.graph
 	{
 		public Guid Id { get; internal set; } = Guid.NewGuid();
 		public Guid WorkflowId { get; internal set; } = Guid.Empty;
+		public Guid RouteId { get; internal set; } = Guid.Empty;
 		public string Name { get; internal set; } = string.Empty;
 		public EGraphType Type { get; internal set; } = EGraphType.Default;
 
@@ -26,11 +27,21 @@ namespace Urbanflow.src.backend.models.graph
 
 		}
 
-		public Graph(Guid workflowId, string name, EGraphType type)
+		public Graph(Guid workflowId, string name, EGraphType type, string routeId = "")
 		{
 			WorkflowId = workflowId;
 			Name = name;
 			Type = type;
+
+			if(routeId != "")
+			{
+				RouteId = Guid.Parse(routeId);
+			}
+			else
+			{
+				RouteId = Guid.Empty;
+			}
+			
 		}
 
 		public Graph(Guid id)
@@ -41,6 +52,7 @@ namespace Urbanflow.src.backend.models.graph
 			if (graph is not null)
 			{
 				WorkflowId = graph.WorkflowId;
+				RouteId = graph.RouteId;
 				Name = graph.Name;
 				Type = graph.Type;
 				LoadNodesAndEdgesFromDatabase();
@@ -85,6 +97,20 @@ namespace Urbanflow.src.backend.models.graph
 					}
 				}
 			}
+		}
+
+		public void SaveGraph()
+		{
+			using var db = new DatabaseContext();
+			var graph = db.Graphs.Where(g => g.Id == Id).FirstOrDefault();
+			if (graph is null) {
+				db.Graphs.Add(this);
+			}
+			else
+			{
+				db.Graphs.Update(this);
+			}
+			db.SaveChanges();	
 		}
 
 		public void AddNode(Node node)
@@ -165,5 +191,9 @@ namespace Urbanflow.src.backend.models.graph
 			return $"Graph: {Name} (WorkflowId: {WorkflowId}, Type: {Type}, Nodes: {Nodes.Count}, Edges: {Edges.Count})";
 		}
 
+		internal Node GetNodeByStopId(Guid StopId)
+		{
+			return Nodes.Where(n => n.StopId == StopId).FirstOrDefault();
+		}
 	}
 }

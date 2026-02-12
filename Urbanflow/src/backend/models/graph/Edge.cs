@@ -36,6 +36,15 @@ namespace Urbanflow.src.backend.models.graph
 			}
 		}
 
+		public Edge(Guid fromNodeId, Guid toNodeId, double weight, EEdgeType type = EEdgeType.Default)
+		{
+			FromNodeId = fromNodeId;
+			ToNodeId = toNodeId;
+			Weight = weight;
+			Type = type;
+			SaveToDatabase();
+		}
+
 		public override string ToString()
 		{
 			return $"Edge {Id}: From {FromNodeId} to {ToNodeId}, Weight: {Weight}, Type: {Type}";

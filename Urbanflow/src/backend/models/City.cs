@@ -8,9 +8,9 @@ namespace Urbanflow.src.backend.models
 	{
 		[Key]
 		public Guid Id { get; set; } = Guid.NewGuid();
+		public Guid GtfsFeedId { get; set; } = Guid.Empty;
 		public string Name { get; set; } 
 		public string Description { get; set; } 
-		public string DefaultGtfsVersion { get; set; } 
 		public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 		public DateTime LastUpdatedAt { get; set; } = DateTime.UtcNow;
 
@@ -19,18 +19,17 @@ namespace Urbanflow.src.backend.models
 
 		public City() { }
 
-		public City(string name, string description, string defaultgtfsversion)
+		public City(string name, string description, Guid feedId)
 		{
 			Name = name;
 			Description = description;
-			DefaultGtfsVersion = defaultgtfsversion;
+			GtfsFeedId= feedId;
 		}
 
 		public override string ToString()
 		{
 			return $"City: {Name} ({Id})\n"
 				 + $"Description: {Description}\n"
-				 + $"Default GTFS Version: {DefaultGtfsVersion}\n"
 				 + $"Created At: {CreatedAt}\n"
 				 + $"Last Updated At: {LastUpdatedAt}\n";
 		}

@@ -49,9 +49,9 @@ namespace Urbanflow.src.backend.services
 				throw new Exception("City with the same name already exists.");
 			}
 
-			string gtfsVersion = GtfsManagerService.UploadGtfsData(GtfsPath);
+			Guid feedId = GtfsManagerService.UploadGtfsData(GtfsPath);
 
-			City city = new(Name, Description, gtfsVersion);
+			City city = new(Name, Description, feedId);
 
 			using (var db = new DatabaseContext())
 			{
@@ -70,7 +70,7 @@ namespace Urbanflow.src.backend.services
 			{
 				existingCity.Name = city.Name;
 				existingCity.Description = city.Description;
-				existingCity.DefaultGtfsVersion = city.DefaultGtfsVersion;
+				existingCity.GtfsFeedId = city.GtfsFeedId;
 				existingCity.LastUpdatedAt = DateTime.UtcNow;
 				db.SaveChanges();
 			}
@@ -122,7 +122,7 @@ namespace Urbanflow.src.backend.services
 
 			City city = GetCityById(CityId);
 
-			Workflow workflow = new(Name, CityId, Description, city.DefaultGtfsVersion);
+			Workflow workflow = new(Name, CityId, Description, city.GtfsFeedId);
 
 			using (var db = new DatabaseContext())
 			{
@@ -157,7 +157,7 @@ namespace Urbanflow.src.backend.services
 			{
 				existingWorkflow.Name = workflow.Name;
 				existingWorkflow.Description = workflow.Description;
-				existingWorkflow.GtfsVersion = workflow.GtfsVersion;
+				existingWorkflow.GtfsFeedId= workflow.GtfsFeedId;
 				existingWorkflow.LastModified = DateTime.UtcNow;
 				db.SaveChanges();
 			}
@@ -171,7 +171,7 @@ namespace Urbanflow.src.backend.services
 		{
 			using var db = new DatabaseContext();
 			var existingCity = (db.Cities?.FirstOrDefault(c => c.Name == cityName)) ?? throw new Exception("City not found.");
-			var newWorkflow = new Workflow(workflowName, existingCity.Id, workflowDescription, existingCity.DefaultGtfsVersion);
+			var newWorkflow = new Workflow(workflowName, existingCity.Id, workflowDescription, existingCity.GtfsFeedId);
 			db.Workflows?.Add(newWorkflow);
 			db.SaveChanges();
 		}
@@ -200,5 +200,6 @@ namespace Urbanflow.src.backend.services
 			}
 		}
 		// *** End Workflow Management ***
+
 	}
 }
