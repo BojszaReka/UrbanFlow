@@ -38,10 +38,20 @@ namespace Urbanflow.src.backend.models.graph
 
 		public Edge(Guid fromNodeId, Guid toNodeId, double weight, EEdgeType type = EEdgeType.Default)
 		{
+			using var db = new DatabaseContext();
+			var edge = db.Edges.Where(e => e.FromNodeId == fromNodeId && e.ToNodeId  == toNodeId && e.Weight == weight && e.Type == type).FirstOrDefault();
+
 			FromNodeId = fromNodeId;
 			ToNodeId = toNodeId;
 			Weight = weight;
 			Type = type;
+
+			if (edge is not null) {
+				Id = edge.Id;
+				return;
+			}
+			
+			Id = Guid.NewGuid();			
 			SaveToDatabase();
 		}
 

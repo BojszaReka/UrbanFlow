@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Urbanflow.src.backend.db;
 
@@ -10,9 +11,11 @@ using Urbanflow.src.backend.db;
 namespace Urbanflow.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20260215131827_InitialCreate")]
+    partial class InitialCreate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -323,6 +326,9 @@ namespace Urbanflow.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid>("GtfsSourceId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Lang")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -345,7 +351,47 @@ namespace Urbanflow.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("GtfsSourceId");
+
                     b.ToTable("GtfsFeeds", (string)null);
+                });
+
+            modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.GtfsSources", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CityName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GtfsName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ImportedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceUrl")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StringId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("GtfsSources");
                 });
 
             modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.Route", b =>
@@ -640,6 +686,17 @@ namespace Urbanflow.Migrations
                         .IsRequired();
 
                     b.Navigation("GtfsFeed");
+                });
+
+            modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.GtfsFeed", b =>
+                {
+                    b.HasOne("Urbanflow.src.backend.models.gtfs.GtfsSources", "GtfsSource")
+                        .WithMany()
+                        .HasForeignKey("GtfsSourceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GtfsSource");
                 });
 
             modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.Route", b =>

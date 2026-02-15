@@ -9,6 +9,8 @@ namespace Urbanflow.src.backend.models.gtfs
 	{
 		// Database fields
 		public Guid GtfsFeedId { get; internal set; }
+		[ForeignKey("GtfsFeedId")]
+		public GtfsFeed GtfsFeed { get; internal set; }
 		[Key]
 		public Guid Id { get; internal set; }
 
@@ -96,10 +98,12 @@ namespace Urbanflow.src.backend.models.gtfs
 		public DateTime EndDate { get; set; }
 
 		// Constructors
+
+		public Calendar() { }
 		public Calendar(Guid id)
 		{
 			Id = id;
-			DatabaseContext db = new();
+			using var db = new DatabaseContext();
 			Calendar? c = db.Calendars?.Find(id);
 			if (c is not null)
 			{
@@ -117,12 +121,15 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public Calendar(GTFS.Entities.Calendar c, Guid id)
 		{
+			using var db = new DatabaseContext();
 			GtfsFeedId = id;
 			Id = Guid.NewGuid();
 			ServiceId = c.ServiceId;
 			Mask = c.Mask;
 			StartDate = c.StartDate;
 			EndDate = c.EndDate;
+			db.Calendars.Add(this);
+			db.SaveChanges();
 		}
 
 		public GTFS.Entities.Calendar Export()

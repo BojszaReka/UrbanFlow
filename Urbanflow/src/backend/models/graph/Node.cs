@@ -25,12 +25,21 @@ namespace Urbanflow.src.backend.models.graph
 
 		public Node(Stop s)
 		{
-			Id = Guid.NewGuid();
+			using var db = new DatabaseContext();
+			var node = db.Nodes?.Where(n =>n.Name == Name && n.Type == Type && n.StopId == s.Id && n.Latitude == s.Latitude && n.Longitude == s.Longitude).FirstOrDefault();
+
 			Name = s.Name;
 			Type = s.NodeType;
 			StopId = s.Id;
 			Latitude = s.Latitude;
 			Longitude = s.Longitude;
+
+			if (node != null) { 
+				Id = node.Id;
+				return;
+			}
+
+			Id = Guid.NewGuid();
 			SaveToDatabase();
 		}
 
@@ -46,6 +55,10 @@ namespace Urbanflow.src.backend.models.graph
 				StopId = node.StopId;
 				Latitude = node.Latitude;
 				Longitude = node.Longitude;
+			}
+			else
+			{
+				throw new Exception("No node is found with the given id");
 			}
 		}
 

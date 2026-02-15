@@ -10,6 +10,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="yWorks.yFilesWPF.DevelopmentLicense.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="yWorks.yFilesWPF.DevelopmentLicense.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BruTile" Version="6.0.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="GeoAPI" Version="1.7.5" />
@@ -26,6 +34,7 @@
     <PackageReference Include="SharpMap.Layers.BruTile" Version="1.2.0" />
     <PackageReference Include="SharpMap.UI" Version="1.2.0" />
     <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
+    <PackageReference Include="yWorks.yFilesWPF.Complete" Version="4.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -37,7 +46,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="PROGRAMDATA\" />
+    <Folder Include="Migrations\" />
   </ItemGroup>
 
 

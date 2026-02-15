@@ -23,10 +23,14 @@ namespace Urbanflow.src.backend.models.gtfs
 		public string Url { get; internal set; }
 		public int? Color { get; internal set; }
 		public int? TextColor { get; internal set; }
+		[ForeignKey("GtfsFeedId")]
+		public GtfsFeed GtfsFeed { get; internal set; }
 
 		// Constructors
+		public Route() { }
 		public Route(GTFS.Entities.Route r, Guid id)
 		{
+			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
 			GtfsFeedId = id;
 			RouteId = r.Id;
@@ -37,11 +41,13 @@ namespace Urbanflow.src.backend.models.gtfs
 			Url = r.Url;
 			Color = r.Color;
 			TextColor = r.TextColor;
+			db.Routes.Add(this);
+			db.SaveChanges();
 		}
 
 		public Route(Guid id)
 		{
-			DatabaseContext context = new();
+			using var context = new DatabaseContext();
 			var route = context.Routes?.Find(id);
 			if (route != null)
 			{

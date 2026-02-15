@@ -19,10 +19,15 @@ namespace Urbanflow.src.backend.models.gtfs
 		public string Phone { get; internal set; }
 		public string FareURL { get; internal set; }
 
+		[ForeignKey("GtfsFeedId")]
+		public GtfsFeed GtfsFeed { get; internal set; }
+
 		// Contructors
+		public Agency() { }
+
 		public Agency(Guid id)
 		{
-			DatabaseContext db = new();
+			using var db = new DatabaseContext();
 			var agency = db.Agencies?.Find(id);
 			if (agency != null)
 			{
@@ -44,6 +49,7 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public Agency(GTFS.Entities.Agency a, Guid id)
 		{
+			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
 			GtfsFeedId = id;
 			Agency_Id = a.Id;
@@ -53,6 +59,8 @@ namespace Urbanflow.src.backend.models.gtfs
 			LanguageCode = a.LanguageCode;
 			Phone = a.Phone;
 			FareURL = a.FareURL ?? "Unknown";
+			db.Agencies.Add(this);
+			db.SaveChanges();
 		}
 
 		// GTFS methods

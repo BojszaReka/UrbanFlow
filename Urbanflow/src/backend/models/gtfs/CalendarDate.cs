@@ -17,20 +17,26 @@ namespace Urbanflow.src.backend.models.gtfs
 		public string ServiceId { get; internal set; }
 		public DateTime Date { get; internal set; }
 		public ExceptionType ExceptionType { get; internal set; }
+		[ForeignKey("GtfsFeedId")]
+		public GtfsFeed GtfsFeed { get; internal set; }
 
 		// Constructors
+		public CalendarDate() { }
 		public CalendarDate(GTFS.Entities.CalendarDate cd, Guid id)
 		{
+			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
 			GtfsFeedId = id;
 			ServiceId = cd.ServiceId;
 			Date = cd.Date;
 			ExceptionType = cd.ExceptionType;
+			db.CalendarDates.Add(this);
+			db.SaveChanges();
 		}
 
 		public CalendarDate(Guid id)
 		{
-			DatabaseContext db = new();
+			using var db = new DatabaseContext();
 			CalendarDate? cd = db.CalendarDates?.Find(id);
 			if (cd != null)
 			{

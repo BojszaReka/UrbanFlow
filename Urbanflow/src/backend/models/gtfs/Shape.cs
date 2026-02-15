@@ -18,10 +18,15 @@ namespace Urbanflow.src.backend.models.gtfs
 		public double Longitude { get; internal set; }
 		public uint Sequence { get; internal set; }
 		public double? DistanceTravelled { get; internal set; }
+		[ForeignKey("GtfsFeedId")]
+		public GtfsFeed GtfsFeed { get; internal set; }
 
 		// Constructors
+		public Shape() { }
+
 		public Shape(GTFS.Entities.Shape s, Guid id)
 		{
+			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
 			GtfsFeedId = id;
 			ShapeId = s.Id;
@@ -29,12 +34,14 @@ namespace Urbanflow.src.backend.models.gtfs
 			Longitude = s.Longitude;
 			Sequence = s.Sequence;
 			DistanceTravelled = s.DistanceTravelled;
+			db.Shapes.Add(this);
+			db.SaveChanges();
 		}
 
 		public Shape(Guid id)
 		{
 			Id = id;
-			DatabaseContext db = new();
+			using var db = new DatabaseContext();
 			var shape = db.Shapes?.Find(id);
 			if (shape is not null)
 			{

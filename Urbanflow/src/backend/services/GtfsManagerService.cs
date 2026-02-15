@@ -53,6 +53,7 @@ namespace Urbanflow.src.backend.services
 			if (workflow == null) { throw new("Workflow not found"); }
 
 			GtfsFeed feed = new(workflow.GtfsFeedId);
+			feed.SetNodeTypeForStops();
 			var networkEdgesData = feed.GetDataForEdgesOfNetwork();
 			var networkNodeData = feed.GetStopsForNetworkGraph();
 

@@ -24,10 +24,15 @@ namespace Urbanflow.src.backend.models.gtfs
 		public PickupType? PickupType { get; internal set; }
 		public DropOffType? DropOffType { get; internal set; }
 		public string? ShapeDistTravelled { get; internal set; }
+		[ForeignKey("GtfsFeedId")]
+		public GtfsFeed GtfsFeed { get; internal set; }
 
 		// Contructors
+		public StopTime() { }
+
 		public StopTime(GTFS.Entities.StopTime st, Guid id)
 		{
+			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
 			GtfsFeedId = id;
 			TripId = st.TripId;
@@ -39,12 +44,14 @@ namespace Urbanflow.src.backend.models.gtfs
 			PickupType = st.PickupType;
 			DropOffType = st.DropOffType;
 			ShapeDistTravelled = st.ShapeDistTravelled;
+			db.StopTimes.Add(this);
+			db.SaveChanges();
 		}
 
 		public StopTime(Guid id)
 		{
 			Id = id;
-			DatabaseContext db = new();
+			using var db = new DatabaseContext();
 			StopTime? stopTime = (db.StopTimes?.Find(id)) ?? throw new InvalidOperationException($"StopTime with id {id} not found.");
 			GtfsFeedId = stopTime.GtfsFeedId;
 			TripId = stopTime.TripId;

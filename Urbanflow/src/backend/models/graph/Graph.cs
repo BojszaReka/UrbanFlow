@@ -156,6 +156,7 @@ namespace Urbanflow.src.backend.models.graph
 			}
 			if (Edges.Any(e => e.Id == edge.Id))
 			{
+				return;
 				throw new InvalidOperationException("Edge with the same Id already exists in the graph.");
 			}
 			Edges.Add(edge);

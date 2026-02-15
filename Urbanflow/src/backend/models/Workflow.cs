@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
+using Urbanflow.src.backend.models.gtfs;
 
 namespace Urbanflow.src.backend.models
 {
@@ -16,6 +17,9 @@ namespace Urbanflow.src.backend.models
 
 		[ForeignKey("CityId")]
 		public City City { get; set; }
+
+		[ForeignKey("GtfsFeedId")]
+		public GtfsFeed GtfsFeed { get; internal set; }
 
 		public Workflow() { }
 

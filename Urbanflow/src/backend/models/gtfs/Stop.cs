@@ -28,10 +28,15 @@ namespace Urbanflow.src.backend.models.gtfs
 		public string ParentStation { get; internal set; }
 		public string Timezone { get; internal set; }
 		public string WheelchairBoarding { get; internal set; }
+		[ForeignKey("GtfsFeedId")]
+		public GtfsFeed GtfsFeed { get; internal set; }
 
 		//Constructors
+		public Stop() { }
+
 		public Stop(GTFS.Entities.Stop stop, Guid id)
 		{
+			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
 			GtfsFeedId = id;
 			NodeType = ENodeType.Default;
@@ -48,12 +53,15 @@ namespace Urbanflow.src.backend.models.gtfs
 			ParentStation = stop.ParentStation;
 			Timezone = stop.Timezone;
 			WheelchairBoarding = stop.WheelchairBoarding ?? "Unknown";
+
+			db.Stops.Add(this);
+			db.SaveChanges();
 		}
 
 		public Stop(Guid id)
 		{
 			Id = id;
-			DatabaseContext context = new();
+			using var context = new DatabaseContext();
 			var stop = context.Stops?.Find(id);
 			if (stop is not null)
 			{

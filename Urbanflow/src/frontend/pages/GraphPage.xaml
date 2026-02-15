@@ -4,10 +4,12 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:local="clr-namespace:Urbanflow.src.frontend.pages"
+      xmlns:ywpf="http://www.yworks.com/xml/yfiles-wpf/4.0/xaml"
       mc:Ignorable="d" 
       Background="White"
       Height="Auto" Width="Auto"
-      Title="GraphPage">
+      Title="GraphPage"
+       Loaded="OnLoaded">
 
     <Page.Resources>
         <ResourceDictionary>
@@ -61,7 +63,9 @@
                 <!-- Use Grid to separate center and bottom -->
                 <Grid>
                     <!-- Center content -->
+                    <!-- 
                     <StackPanel
+                        x:Uid="no graph data"
                  VerticalAlignment="Center"
                  HorizontalAlignment="Center"
                  TextBlock.TextAlignment="Center">
@@ -85,6 +89,10 @@
                          Width="180"
                          Height="25"/>
                     </StackPanel>
+                    -->
+                    <ywpf:GraphControl x:Name="graphControl" Width="Auto" Height="Auto" FileOperationsEnabled="True"/>
+                    
+
                 </Grid>
             </Border>
 

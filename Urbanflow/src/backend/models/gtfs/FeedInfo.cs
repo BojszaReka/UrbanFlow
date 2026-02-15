@@ -8,5 +8,7 @@ namespace Urbanflow.src.backend.models.gtfs
 	{
 		[Key]
 		public Guid Id { get; internal set; }
+
+		public FeedInfo() { }
 	}
 }

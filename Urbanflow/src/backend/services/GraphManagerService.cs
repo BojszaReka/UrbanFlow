@@ -51,6 +51,15 @@ namespace Urbanflow.src.backend.services
 			}
 		}
 
+		// Getting graph data
+		public Graph GetNetWorkGraphData()
+		{
+			var graph = Graphs?.Where(g => g.Type == EGraphType.Network).FirstOrDefault();
+			if (graph == null)
+				throw new Exception("No network graph for this workflow has been generated");
+			return graph;
+		}
+
 		// GTFS interactions
 		private void GenerateFullNetworkGraph()
 		{

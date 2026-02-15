@@ -14,8 +14,6 @@ namespace Urbanflow.src.backend.models.gtfs
 		// Properties
 		[Key]
 		public Guid Id { get; internal set; } = Guid.NewGuid();
-		public Guid GtfsSourceId { get; internal set; }
-
 		public string PublisherName { get; internal set; }
 		public string PublisherUrl { get; internal set; }
 		public string Lang { get; internal set; }
@@ -33,6 +31,7 @@ namespace Urbanflow.src.backend.models.gtfs
 		public List<StopTime> StopTimes { get; internal set; } = [];
 		public List<Trip> Trips { get; internal set; } = [];
 
+
 		// Contructors
 
 		public GtfsFeed() { }
@@ -44,15 +43,6 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public GtfsFeed(GTFSFeed feed)
 		{
-			AdaptCollection(feed.Agencies, Agencies, Id, (a, id) => new Agency(a, id));
-			AdaptCollection(feed.Calendars, Calendars, Id, (c, id) => new Calendar(c, id));
-			AdaptCollection(feed.CalendarDates, CalendarDates, Id, (cd, id) => new CalendarDate(cd, id));
-			AdaptCollection(feed.Routes, Routes, Id, (r, id) => new Route(r, id));
-			AdaptCollection(feed.Shapes, Shapes, Id, (s, id) => new Shape(s, id));
-			AdaptCollection(feed.Stops, Stops, Id, (s, id) => new Stop(s, id));
-			AdaptCollection(feed.StopTimes, StopTimes, Id, (st, id) => new StopTime(st, id));
-			AdaptCollection(feed.Trips, Trips, Id, (t, id) => new Trip(t, id));
-
 			GTFS.Entities.FeedInfo feedInfo = feed.GetFeedInfo();
 			PublisherName = feedInfo.PublisherName ?? "Unknown";
 			PublisherUrl = feedInfo.PublisherUrl ?? "Unknown";
@@ -61,7 +51,15 @@ namespace Urbanflow.src.backend.models.gtfs
 			EndDate = feedInfo.EndDate ?? "Unknown";
 			Version = feedInfo.Version ?? "Unknown";
 			AddtoDatabase();
-			SetNodeTypeForStops();
+
+			AdaptCollection(feed.Agencies, Agencies, Id, (a, id) => new Agency(a, id));
+			AdaptCollection(feed.Calendars, Calendars, Id, (c, id) => new Calendar(c, id));
+			AdaptCollection(feed.CalendarDates, CalendarDates, Id, (cd, id) => new CalendarDate(cd, id));
+			AdaptCollection(feed.Routes, Routes, Id, (r, id) => new Route(r, id));
+			AdaptCollection(feed.Shapes, Shapes, Id, (s, id) => new Shape(s, id));
+			AdaptCollection(feed.Stops, Stops, Id, (s, id) => new Stop(s, id));
+			AdaptCollection(feed.StopTimes, StopTimes, Id, (st, id) => new StopTime(st, id));
+			AdaptCollection(feed.Trips, Trips, Id, (t, id) => new Trip(t, id));			
 		}
 
 		// ----------------------------
@@ -96,10 +94,10 @@ namespace Urbanflow.src.backend.models.gtfs
 
 
 		// Database operations
-		private void UpdateFromDatabase(Guid id)
+		public void UpdateFromDatabase(Guid id)
 		{
-			DatabaseContext context = new();
-			GtfsFeed? dbFeed = (context.GtfsFeeds?.Find(id)) ?? throw new Exception("GTFS Feed not found in database.");
+			using var context = new DatabaseContext();
+			var dbFeed = (context.GtfsFeeds?.Find(id)) ?? throw new Exception("GTFS Feed not found in database.");
 			this.PublisherName = dbFeed.PublisherName;
 			this.PublisherUrl = dbFeed.PublisherUrl;
 			this.Lang = dbFeed.Lang;
@@ -107,19 +105,19 @@ namespace Urbanflow.src.backend.models.gtfs
 			this.EndDate = dbFeed.EndDate;
 			this.Version = dbFeed.Version;
 
-			this.Agencies = [.. dbFeed.Agencies.Where(a => a.GtfsFeedId == id)];
-			this.Calendars = [.. dbFeed.Calendars.Where(a => a.GtfsFeedId == id)];
-			this.CalendarDates = [.. dbFeed.CalendarDates.Where(a => a.GtfsFeedId == id)];
-			this.Routes = [.. dbFeed.Routes.Where(a => a.GtfsFeedId == id)];
-			this.Shapes = [.. dbFeed.Shapes.Where(a => a.GtfsFeedId == id)];
-			this.Stops = [.. dbFeed.Stops.Where(a => a.GtfsFeedId == id)];
-			this.StopTimes = [.. dbFeed.StopTimes.Where(a => a.GtfsFeedId == id)];
-			this.Trips = [.. dbFeed.Trips.Where(a => a.GtfsFeedId == id)];
+			this.Agencies = [.. context.Agencies.Where(a => a.GtfsFeedId == id)];
+			this.Calendars = [.. context.Calendars.Where(a => a.GtfsFeedId == id)];
+			this.CalendarDates = [.. context.CalendarDates.Where(a => a.GtfsFeedId == id)];
+			this.Routes = [.. context.Routes.Where(a => a.GtfsFeedId == id)];
+			this.Shapes = [.. context.Shapes.Where(a => a.GtfsFeedId == id)];
+			this.Stops = [.. context.Stops.Where(a => a.GtfsFeedId == id)];
+			this.StopTimes = [.. context.StopTimes.Where(a => a.GtfsFeedId == id)];
+			this.Trips = [.. context.Trips.Where(a => a.GtfsFeedId == id)];
 		}
 
 		public void UpdateDatabase()
 		{
-			DatabaseContext context = new();
+			using var context = new DatabaseContext();
 			var existingFeed = context.GtfsFeeds?.Find(Id);
 			try
 			{
@@ -157,17 +155,16 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		private void AddtoDatabase()
 		{
-			DatabaseContext context = new();
-
+			using var context = new DatabaseContext();
 			context.GtfsFeeds?.Add(this);
-			context.Agencies?.AddRange(this.Agencies);
-			context.Calendars?.AddRange(this.Calendars);
-			context.CalendarDates?.AddRange(this.CalendarDates);
-			context.Routes?.AddRange(this.Routes);
-			context.Shapes?.AddRange(this.Shapes);
-			context.Stops?.AddRange(this.Stops);
-			context.StopTimes?.AddRange(this.StopTimes);
-			context.Trips?.AddRange(this.Trips);
+			//context.Agencies?.AddRange(this.Agencies);
+			//context.Calendars?.AddRange(this.Calendars);
+			//context.CalendarDates?.AddRange(this.CalendarDates);
+			//context.Routes?.AddRange(this.Routes);
+			//context.Shapes?.AddRange(this.Shapes);
+			//context.Stops?.AddRange(this.Stops);
+			//context.StopTimes?.AddRange(this.StopTimes);
+			//context.Trips?.AddRange(this.Trips);
 			context.SaveChanges();
 		}
 		// ----------------------------
@@ -217,7 +214,13 @@ namespace Urbanflow.src.backend.models.gtfs
 
 			var routeTrips = Trips.Where(t => t.RouteId == route.RouteId);
 
-			var trip = routeTrips.FirstOrDefault() ?? throw new Exception("No trips found for route.");
+			var trip = routeTrips.FirstOrDefault();
+
+			if(trip == null)
+			{
+				return routeStops;
+				throw new Exception("No trips found for route.");
+			}
 
 			var stopTimes = StopTimes
 				.Where(st => st.TripId == trip.TripId)
@@ -250,7 +253,12 @@ namespace Urbanflow.src.backend.models.gtfs
 			string rId = route.RouteId;
 			var routeTrips = Trips.Where(t => t.RouteId == route.RouteId);
 
-			var trip = routeTrips.FirstOrDefault() ?? throw new Exception("No trips found for route.");
+			var trip = routeTrips.FirstOrDefault();
+
+			if(trip == null)
+			{
+				return edgeData;
+			}
 
 			var stopTimes = StopTimes.Where(st => st.TripId == trip.TripId).OrderBy(s => s.StopSequence).ToList();
 
@@ -270,8 +278,8 @@ namespace Urbanflow.src.backend.models.gtfs
 
 				edgeData.Add(new EdgeDataDTO()
 				{
-					FromStopId = fromStop.Id,
-					ToStopId = toStop.Id,
+					FromStopId = GetParentStopOfStop(fromStop.Id).Id,
+					ToStopId = GetParentStopOfStop(toStop.Id).Id,
 					TravelTimeMinutes = travelTimeMinutes,
 				});
 			}
@@ -285,7 +293,11 @@ namespace Urbanflow.src.backend.models.gtfs
 			foreach (var route in Routes)
 			{
 				var edgeData = GetDataForEdgesOfRoute(route.Id);
-				alledge.AddRange(edgeData);
+				if (edgeData != null && edgeData.Count() > 0)
+				{
+					alledge.AddRange(edgeData);
+				}
+				
 			}
 			return alledge;
 		}
@@ -299,9 +311,10 @@ namespace Urbanflow.src.backend.models.gtfs
 					var stop= Stops.Where(s => s.StopId == StopId).FirstOrDefault();
 					if (stop == null)
 						continue;
+
 					var data = new NodeDataDTO()
 					{
-						Stop = stop
+						Stop = GetParentStopOfStop(stop.Id)
 					};
 					if (allStops != null && allStops.Contains(data))
 						continue;
@@ -329,7 +342,7 @@ namespace Urbanflow.src.backend.models.gtfs
 					continue;
 				var data = new NodeDataDTO()
 				{
-					Stop = stop
+					Stop = GetParentStopOfStop(stop.Id)
 				};
 				if (allStops != null && allStops.Contains(data))
 					continue;
@@ -338,21 +351,23 @@ namespace Urbanflow.src.backend.models.gtfs
 			return allStops;
 		}
 
-		private void SetNodeTypeForStops()
+		public void SetNodeTypeForStops()
 		{
 			foreach (var route in Routes)
 			{
 				var routeStops = RouteStops(route.Id);
-				var lastSequenceNumber = routeStops.Last().SequenceNumber;
-				foreach (var (SequenceNumber, StopId) in routeStops)
-				{
-					Stop stop = Stops.Where(s => s.StopId == StopId).FirstOrDefault();
-					if (stop != null || stop.NodeType == ENodeType.Terminal)
-						continue;
+				if (routeStops != null && routeStops.Count() > 0 ) {
+					var lastSequenceNumber = routeStops.Last().SequenceNumber;
+					foreach (var (SequenceNumber, StopId) in routeStops)
+					{
+						Stop stop = Stops.Where(s => s.StopId == StopId).FirstOrDefault();
+						if (stop == null || stop.NodeType == ENodeType.Terminal)
+							continue;
 
-					if(SequenceNumber == 1 || SequenceNumber == lastSequenceNumber)
-						stop.NodeType = ENodeType.Terminal;
-				}
+						if (SequenceNumber == 1 || SequenceNumber == lastSequenceNumber)
+							stop.NodeType = ENodeType.Terminal;
+					}
+				}				
 			}
 
 			using var db = new DatabaseContext();
@@ -364,6 +379,17 @@ namespace Urbanflow.src.backend.models.gtfs
 		{
 			var route = Routes.Where(r => r.Id== routeId).FirstOrDefault();
 			return route.ShortName;
+		}
+
+		private Stop GetParentStopOfStop(Guid id)
+		{
+			var stop = Stops.Where(x => x.Id == id).FirstOrDefault();
+			if (stop != null && stop.ParentStation != null)
+			{
+				var parentStation = Stops.Where(x => x.StopId == stop.ParentStation).FirstOrDefault();
+				return parentStation;
+			}
+			return stop;
 		}
 
 		// ----------------------------

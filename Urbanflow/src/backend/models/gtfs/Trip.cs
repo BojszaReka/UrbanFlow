@@ -23,10 +23,15 @@ namespace Urbanflow.src.backend.models.gtfs
 		public string BlockId { get; set; }
 		public string ShapeId { get; set; }
 		public WheelchairAccessibilityType? AccessibilityType { get; set; }
+		[ForeignKey("GtfsFeedId")]
+		public GtfsFeed GtfsFeed { get; internal set; }
 
 		//Constructors
+		public Trip() { }
+
 		public Trip(GTFS.Entities.Trip trip, Guid id)
 		{
+			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
 			GtfsFeedId = id;
 			TripId = trip.Id;
@@ -38,12 +43,15 @@ namespace Urbanflow.src.backend.models.gtfs
 			BlockId = trip.BlockId;
 			ShapeId = trip.ShapeId;
 			AccessibilityType = trip.AccessibilityType;
+
+			db.Trips.Add(this);
+			db.SaveChanges();
 		}
 
 		public Trip(Guid id)
 		{
 			Id = id;
-			DatabaseContext context = new();
+			using var context = new DatabaseContext();
 			Trip? t = context.Trips?.Find(id) ?? throw new InvalidOperationException($"Trip with id {id} not found.");
 			GtfsFeedId = t.GtfsFeedId;
 			TripId = t.TripId;

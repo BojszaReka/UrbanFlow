@@ -35,7 +35,7 @@ namespace Urbanflow.src.backend.db
 			string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
 			string urbanflowDir = Path.Combine(appDataPath, "Urbanflow");
 			Directory.CreateDirectory(urbanflowDir);
-			string dbPath = Path.Combine(urbanflowDir, "urbanflow.db");
+			string dbPath = Path.Combine(urbanflowDir, "UrbanFlowData.db");
 			optionsBuilder.UseSqlite($"Data Source={dbPath}");
 
 		}
