@@ -1,109 +1,156 @@
 ﻿using Urbanflow.src.backend.db;
-using Urbanflow.src.backend.enums;
+using Urbanflow.src.backend.models;
 using Urbanflow.src.backend.models.DTO;
+using Urbanflow.src.backend.models.enums;
 using Urbanflow.src.backend.models.graph;
+using Urbanflow.src.backend.models.gtfs;
+using Urbanflow.src.backend.models.util;
 
 namespace Urbanflow.src.backend.services
 {
 	public class GraphManagerService
 	{
-		public Guid WorkflowId { get; set; }
-		public List<Graph> Graphs { get; set; } = [];
 
-
-		public GraphManagerService() { }
-
-		public GraphManagerService(Guid workflowId)
+		public static Result<HashSet<Graph>> LoadGraphs(Guid workflowId)
 		{
-			WorkflowId = workflowId;
-			using var db = new DatabaseContext();
-			Graphs = [.. db.Graphs?.Where(g => g.WorkflowId == workflowId)];
+			try
+			{
+				using var db = new DatabaseContext();
+
+				var graphs = db.Graphs
+					.Where(g => g.WorkflowId == workflowId)
+					.ToHashSet();
+				if (graphs == null)
+					return Result<HashSet<Graph>>.Failure("No graphs found for workflow");
+
+				return Result<HashSet<Graph>>.Success(graphs);
+			}
+			catch (Exception ex)
+			{
+				return Result<HashSet<Graph>>.Failure(ex.Message);
+			}
 		}
+
 
 		//Intialization
-		public void CreateAllGraphsForFeed()
+		public static Result<HashSet<Graph>> CreateAllGraphsForFeed(Guid workflowId, in GraphDataDTO networkGraphData, in Dictionary<Guid, GraphDataDTO> routeGraphData)
 		{
-			GtfsManagerService gtfsManager = new();
-			List<Guid> routeIds = gtfsManager.GetRouteIds(WorkflowId);
+			var graphs = new HashSet<Graph>();
 
-			GenerateFullNetworkGraph();
-			foreach (var routeId in routeIds) { 
-				GenerateGraphForRoute(routeId);
+			var result = GenerateFullNetworkGraph(networkGraphData, workflowId);
+
+			if (result.IsFailure)
+				return Result<HashSet<Graph>>.Failure(result.Error);
+
+			graphs.Add(result.Value);
+
+			foreach (var rgd in routeGraphData)
+			{
+				result = GenerateGraphForRoute(workflowId, rgd.Key, rgd.Value);
+
+				if (result.IsFailure)
+					return Result<HashSet<Graph>>.Failure(result.Error);
+
+				graphs.Add(result.Value);
 			}
+
+			return Result<HashSet<Graph>>.Success(graphs);
 		}
 
-		public void SafeGraphGeneration()
+		public static Result<HashSet<Graph>> SafeGraphGeneration(Guid workflowId, in HashSet<Graph> existingGraphs, in GraphDataDTO networkGraphData, in Dictionary<Guid, GraphDataDTO> routeGraphData)
 		{
-			var networkgraph = Graphs.Where(g => g.Type == EGraphType.Network).FirstOrDefault();
-			if(networkgraph == null)
+			var graphs = new HashSet<Graph>(existingGraphs);
+
+			var networkGraph = existingGraphs.FirstOrDefault(g => g.Type == EGraphType.Network);
+
+			if (networkGraph == null)
 			{
-				GenerateFullNetworkGraph();
+				var result = GenerateFullNetworkGraph(networkGraphData, workflowId);
+
+				if (result.IsFailure)
+					return Result<HashSet<Graph>>.Failure(result.Error);
+
+				graphs.Add(result.Value);
 			}
 
-			GtfsManagerService gtfsManager = new();
-			List<Guid> routeIds = gtfsManager.GetRouteIds(WorkflowId);
-			GenerateFullNetworkGraph();
-			foreach (var routeId in routeIds)
+			foreach (var rgd in routeGraphData)
 			{
-				var routeGraph = Graphs.Where(g => g.Type == EGraphType.Route || g.RouteId == routeId).FirstOrDefault();
-				if(routeGraph == null)
-					GenerateGraphForRoute(routeId);
+				var routeGraph = existingGraphs
+					.FirstOrDefault(g =>
+						g.Type == EGraphType.Route &&
+						g.RouteId == rgd.Key);
+
+				if (routeGraph != null)
+					continue;
+
+				var result = GenerateGraphForRoute(workflowId, rgd.Key, rgd.Value);
+
+				if (result.IsFailure)
+					return Result<HashSet<Graph>>.Failure(result.Error);
+
+				graphs.Add(result.Value);
 			}
+
+			return Result<HashSet<Graph>>.Success(graphs);
 		}
 
 		// Getting graph data
-		public Graph GetNetWorkGraphData()
+		public static Result<Graph> GetNetWorkGraphData(in HashSet<Graph> graphs)
 		{
-			var graph = Graphs?.Where(g => g.Type == EGraphType.Network).FirstOrDefault();
+			var graph = graphs.Where(g => g.Type == EGraphType.Network).FirstOrDefault();
 			if (graph == null)
 				throw new Exception("No network graph for this workflow has been generated");
 			return graph;
 		}
 
 		// GTFS interactions
-		private void GenerateFullNetworkGraph()
+		private static Result<Graph> GenerateFullNetworkGraph(in GraphDataDTO networkGraphData, Guid workflowId)
 		{
-			GtfsManagerService gtfsManager = new();
-			var graphData = gtfsManager.GetDataForNetworkGraph(WorkflowId);
-
-			CreateGraph(graphData, "Network graph", EGraphType.Network);
+			return CreateGraph(workflowId, networkGraphData, "Network graph", EGraphType.Network);
 		}
 
-		private void GenerateGraphForRoute(Guid routeId)
+		private static Result<Graph> GenerateGraphForRoute(Guid workflowId, Guid routeId, in GraphDataDTO routeGraphData)
 		{
-			GtfsManagerService gtfsManager = new();
-			GraphDataDTO graphData = gtfsManager.GetDataForRouteGraph(WorkflowId, routeId);
-
-
-			CreateGraph(graphData, graphData.GraphName, EGraphType.Route, routeId.ToString());
+			return CreateGraph(workflowId, routeGraphData, routeGraphData.GraphName, EGraphType.Route, routeId.ToString());
 		}
 
 		// Graph methods
-		private void CreateGraph(GraphDataDTO graphData, string name, EGraphType type, string routeId = "")
+		private static Result<Graph> CreateGraph(Guid workflowId, in GraphDataDTO graphData, string name, EGraphType type, string routeId = "")
 		{
-			Graph newGraph;
-			if (EGraphType.Route == type)
+			try
 			{
-				newGraph = new Graph(WorkflowId, name, type, routeId);
+				Graph newGraph = type == EGraphType.Route
+					? new Graph(workflowId, name, type, routeId)
+					: new Graph(workflowId, name, type);
+
+				// Add nodes
+				foreach (var nodeData in graphData.NodeData)
+				{
+					var node = new Node(nodeData.Stop);
+					newGraph.AddNode(node);
+				}
+
+				// Add edges
+				foreach (var edgeData in graphData.EdgesData)
+				{
+					var fromNode = newGraph.GetNodeByStopId(edgeData.FromStopId);
+					var toNode = newGraph.GetNodeByStopId(edgeData.ToStopId);
+
+					if (fromNode == null || toNode == null)
+						return Result<Graph>.Failure("Invalid edge reference: node not found.");
+
+					var edge = new Edge(fromNode.Id, toNode.Id, edgeData.TravelTimeMinutes);
+					newGraph.AddEdge(edge);
+				}
+
+				newGraph.SaveGraph();
+
+				return Result<Graph>.Success(newGraph);
 			}
-			else
+			catch (Exception ex)
 			{
-				newGraph = new Graph(WorkflowId, name, type);
+				return Result<Graph>.Failure(ex.Message);
 			}
-			foreach (var NodeDataDTO in graphData.NodeData)
-			{
-				var n = new Node(NodeDataDTO.Stop);
-				newGraph.AddNode(n);
-			}
-			foreach (var EdgeDataDTO in graphData.EdgesData)
-			{
-				Node fromNode = newGraph.GetNodeByStopId(EdgeDataDTO.FromStopId);
-				Node toNode = newGraph.GetNodeByStopId(EdgeDataDTO.ToStopId);
-				var e = new Edge(fromNode.Id, toNode.Id, EdgeDataDTO.TravelTimeMinutes);
-				newGraph.AddEdge(e);
-			}
-			newGraph.SaveGraph();
-			Graphs.Add(newGraph);
 		} 
 
 	}

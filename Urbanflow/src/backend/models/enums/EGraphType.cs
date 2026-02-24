@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Urbanflow.src.backend.enums
+namespace Urbanflow.src.backend.models.enums
 {
 	public enum EGraphType
 	{

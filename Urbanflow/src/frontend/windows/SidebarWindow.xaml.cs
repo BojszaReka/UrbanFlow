@@ -14,14 +14,14 @@ namespace Urbanflow.src.frontend.windows
 		private const string TabSelectedButtonResourceKey = "TabSelectedButton";
 		private const string TabUnselectedButtonResourceKey = "TabUnselectedButton";
 
-		public SidebarWindow(Workflow workflow)
+		public SidebarWindow(in Workflow workflow)
 		{
 			InitializeComponent();
 			this.workflow = workflow;
 			MainFrame.Content = new GraphPage(workflow);
 		}
 
-		private void unselectTabButtons()
+		private void UnselectTabButtons()
 		{
 			btn_tabgraph.Style = Application.Current.Resources[TabUnselectedButtonResourceKey] as Style;
 			btn_tabai.Style = Application.Current.Resources[TabUnselectedButtonResourceKey] as Style;
@@ -29,37 +29,37 @@ namespace Urbanflow.src.frontend.windows
 			btn_tabnetwork.Style = Application.Current.Resources[TabUnselectedButtonResourceKey] as Style;
 		}
 
-		private void openGraphView(object sender, RoutedEventArgs e)
+		private void OpenGraphView(object sender, RoutedEventArgs e)
 		{
 			MainFrame.Content = new GraphPage(workflow);
-			unselectTabButtons();
+			UnselectTabButtons();
 			btn_tabgraph.Style = Application.Current.Resources[TabSelectedButtonResourceKey] as Style;
 		}
 
-		private void openAiView(object sender, RoutedEventArgs e)
+		private void OpenAiView(object sender, RoutedEventArgs e)
 		{
 			MainFrame.Content = new OptimizationPage(workflow);
-			unselectTabButtons();
+			UnselectTabButtons();
 			btn_tabai.Style = Application.Current.Resources[TabSelectedButtonResourceKey] as Style;
 		}
 
-		private void openMapView(object sender, RoutedEventArgs e)
+		private void OpenMapView(object sender, RoutedEventArgs e)
 		{
 			MainFrame.Content = new MapPage(workflow);
-			unselectTabButtons();
+			UnselectTabButtons();
 			btn_tabmap.Style = Application.Current.Resources[TabSelectedButtonResourceKey] as Style;
 		}
 
-		private void openNetworkView(object sender, RoutedEventArgs e)
+		private void OpenNetworkView(object sender, RoutedEventArgs e)
 		{
 			MainFrame.Content = new NetworkPage(workflow);
-			unselectTabButtons();
+			UnselectTabButtons();
 			btn_tabnetwork.Style = Application.Current.Resources[TabSelectedButtonResourceKey] as Style;
 		}
 
 		private void BackToWelcome_Click(object sender, RoutedEventArgs e)
 		{
-			MainWindow mainWindow = new MainWindow();
+			MainWindow mainWindow = new();
 			mainWindow.Show();
 			this.Close();
 		}

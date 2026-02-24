@@ -9,6 +9,7 @@ using yWorks.Graph.Styles;
 using yWorks.Layout.Orthogonal;
 using Urbanflow.src.backend.services;
 using Urbanflow.src.backend.models.graph;
+using Urbanflow.src.backend.models.util;
 
 namespace Urbanflow.src.frontend.pages
 {
@@ -18,15 +19,13 @@ namespace Urbanflow.src.frontend.pages
 	public partial class GraphPage : Page
 	{
 		private Workflow workflow;
-		private GraphManagerService graphManager;
 		private Graph graphOnDisplay;
 
 		#region Constructor
-		public GraphPage(Workflow workflow)
+		public GraphPage(in Workflow workflow)
 		{
 			InitializeComponent();
 			this.workflow = workflow;
-			graphManager = new GraphManagerService(workflow.Id);
 
 			CreateGraph();
 		}
@@ -34,14 +33,21 @@ namespace Urbanflow.src.frontend.pages
 
 		private void CreateGraph()
 		{
-			graphManager.CreateAllGraphsForFeed();
+			Result<Graph> result = workflow.GetNetWorkGraphData();
+			if (result.IsSuccess)
+			{
+				graphOnDisplay = result.Value;
+			}
+			else
+			{
+				MessageBox.Show(result.Error, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+			}
 
-			graphOnDisplay = graphManager.GetNetWorkGraphData();
 		}
 
 		public async void OnLoaded(object source, EventArgs args)
 		{
-			ConfigureGroupNodeStyles();
+			//ConfigureGroupNodeStyles();
 			SetDefaultStyles();
 			// Populates the graph and overrides some styles and label models
 			await PopulateGraph();
@@ -62,7 +68,7 @@ namespace Urbanflow.src.frontend.pages
 				TabBrush = new SolidColorBrush(Color.FromRgb(0x24, 0x22, 0x65)),
 				TabPosition = GroupNodeStyleTabPosition.TopTrailing,
 				Pen = new Pen(new SolidColorBrush(Color.FromRgb(0x24, 0x22, 0x65)), 2),
-				CornerRadius = 8,
+				CornerRadius = 4,
 				TabWidth = 70,
 				ContentAreaPadding = new InsetsD(8),
 				HitTransparentContentArea = true
@@ -78,40 +84,46 @@ namespace Urbanflow.src.frontend.pages
 
 		private async Task PopulateGraph()
 		{
-			List<(Guid nodeId, INode graphNode)> nodeToNodeList = new List<(Guid nodeId, INode graphNode)>();
+			var nodeLookup = graphOnDisplay.Nodes.ToDictionary(n => n.Id);
+			var graphNodeMap = new Dictionary<Guid, INode>();
 
-			foreach(var Edge in graphOnDisplay.Edges)
+			foreach (var edge in graphOnDisplay.Edges)
 			{
-				var fromNodeDB = graphOnDisplay.Nodes.Where(n => n.Id == Edge.FromNodeId).FirstOrDefault();
-				var toNodeDB = graphOnDisplay.Nodes.Where(n => n.Id == Edge.ToNodeId).FirstOrDefault();
+				if (!graphNodeMap.TryGetValue(edge.FromNodeId, out var fromNodeGraph))
+				{
+					var fromNodeDB = nodeLookup[edge.FromNodeId];
 
-				if (nodeToNodeList == null || !nodeToNodeList.Where(n => n.nodeId == Edge.FromNodeId).Any())
-				{
-					INode node = Graph.CreateNode(new PointD(50, 50));
-					(Guid nodeId, INode graphNode) item = (Edge.FromNodeId, node);
-					nodeToNodeList.Add(item);
-					Graph.AddLabel(node, fromNodeDB.Name);
-				}
-				if (nodeToNodeList == null || !nodeToNodeList.Where(n => n.nodeId == Edge.ToNodeId).Any())
-				{
-					INode node = Graph.CreateNode(new PointD(50, 50));
-					(Guid nodeId, INode graphNode) item = (Edge.ToNodeId, node);
-					nodeToNodeList.Add(item);
-					Graph.AddLabel(node, toNodeDB.Name);
+					fromNodeGraph = Graph.CreateNode(new PointD(50, 50));
+					Graph.AddLabel(fromNodeGraph, fromNodeDB.Name);
+
+					graphNodeMap.Add(edge.FromNodeId, fromNodeGraph);
 				}
 
-				
-				var fromNodeGraph = nodeToNodeList.Where(n => n.nodeId == Edge.FromNodeId).FirstOrDefault().graphNode;
-				var toNodeGraph = nodeToNodeList.Where(n => n.nodeId == Edge.ToNodeId).FirstOrDefault().graphNode;
+				if (!graphNodeMap.TryGetValue(edge.ToNodeId, out var toNodeGraph))
+				{
+					var toNodeDB = nodeLookup[edge.ToNodeId];
 
-				var edge = Graph.CreateEdge(fromNodeGraph, toNodeGraph);
-				Graph.AddLabel(edge, Edge.Weight.ToString());
-			}			
-			
-			await graphControl.ApplyLayoutAnimated(new OrthogonalLayout(), TimeSpan.FromSeconds(0));
+					toNodeGraph = Graph.CreateNode(new PointD(50, 50));
+					Graph.AddLabel(toNodeGraph, toNodeDB.Name);
+
+					graphNodeMap.Add(edge.ToNodeId, toNodeGraph);
+				}
+
+				// Create edge
+				Graph.CreateEdge(fromNodeGraph, toNodeGraph);
+			}
+
+			var layout = new OrthogonalLayout
+			{
+				PreferParallelRoutes = true,
+				ChainSubstructureStyle = ChainSubstructureStyle.Straight,
+				QualityTimeRatio = 0.8,
+				LayoutMode = OrthogonalLayoutMode.Strict,
+				GridSpacing = 10
+			};
+
+			await graphControl.ApplyLayoutAnimated(layout, TimeSpan.Zero);
 		}
-
-		
 
 
 		/// <summary>
@@ -131,7 +143,7 @@ namespace Urbanflow.src.frontend.pages
 			{
 				Shape = ShapeNodeShape.RoundRectangle,
 				Brush = new SolidColorBrush(Color.FromRgb(255, 108, 0)),
-				Pen = new Pen(new SolidColorBrush(Color.FromRgb(102, 43, 0)), 1.5)
+				Pen = new Pen(new SolidColorBrush(Color.FromRgb(102, 43, 0)), 2)
 			};
 
 			#endregion
@@ -143,9 +155,11 @@ namespace Urbanflow.src.frontend.pages
 			// that don't have another style assigned explicitly
 			var defaultEdgeStyle = new PolylineEdgeStyle
 			{
-				Pen = (Pen)new Pen(new SolidColorBrush(Color.FromRgb(102, 43, 0)), 1.5).GetAsFrozen(),
+				Pen = (Pen)new Pen(new SolidColorBrush(Color.FromRgb(102, 43, 0)), 2).GetAsFrozen(),
 				TargetArrow = new Arrow(ArrowType.Triangle,
-					(Brush)new SolidColorBrush(Color.FromRgb(102, 43, 0)).GetAsFrozen())
+					(Brush)new SolidColorBrush(Color.FromRgb(102, 43, 0)).GetAsFrozen()),
+				OrthogonalEditing = true,
+				SmoothingLength = 5,
 			};
 
 			// Sets the defined edge style as the default for all edges that don't have
@@ -168,8 +182,7 @@ namespace Urbanflow.src.frontend.pages
 
 			#region Default Node size
 
-			// Sets the default size explicitly to 40x40
-			Graph.NodeDefaults.Size = new SizeD(40, 40);
+			Graph.NodeDefaults.Size = new SizeD(50, 50);
 
 			#endregion
 		}

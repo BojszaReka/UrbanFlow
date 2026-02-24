@@ -56,7 +56,7 @@
                     <!-- Navigation Tabs -->
                     <StackPanel Margin="0,20,0,0" >
                         <!-- Active Tab -->
-                        <Button x:Name="btn_tabgraph" Style="{StaticResource TabSelectedButton}" Click="openGraphView">
+                        <Button x:Name="btn_tabgraph" Style="{StaticResource TabSelectedButton}" Click="OpenGraphView">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="🕸️" FontSize="16" Margin="6,0,6,0"/>
                                 <TextBlock Text="Gráf nézet" FontSize="14" FontWeight="Medium"/>
@@ -64,21 +64,21 @@
                         </Button>
 
                         <!-- Other Tabs -->
-                        <Button x:Name="btn_tabai" Style="{StaticResource TabUnselectedButton}" Click="openAiView">
+                        <Button x:Name="btn_tabai" Style="{StaticResource TabUnselectedButton}" Click="OpenAiView">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="🤖" FontSize="16" Margin="6,0,6,0"/>
                                 <TextBlock Text="AI optimalizálás" FontSize="14" FontWeight="Medium"/>
                             </StackPanel>
                         </Button>
 
-                        <Button x:Name="btn_tabmap" Style="{StaticResource TabUnselectedButton}" Click="openMapView">
+                        <Button x:Name="btn_tabmap" Style="{StaticResource TabUnselectedButton}" Click="OpenMapView">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="🗺️" FontSize="16" Margin="6,0,6,0"/>
                                 <TextBlock Text="Térkép nézet" FontSize="14" FontWeight="Medium"/>
                             </StackPanel>
                         </Button>
 
-                        <Button x:Name="btn_tabnetwork" Style="{StaticResource TabUnselectedButton}" Click="openNetworkView">
+                        <Button x:Name="btn_tabnetwork" Style="{StaticResource TabUnselectedButton}" Click="OpenNetworkView">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="🛣️" FontSize="16" Margin="6,0,6,0"/>
                                 <TextBlock Text="Hálózat menedzselése" FontSize="14" FontWeight="Medium"/>

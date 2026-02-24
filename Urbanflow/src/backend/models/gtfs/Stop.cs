@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Urbanflow.src.backend.db;
-using Urbanflow.src.backend.enums;
+using Urbanflow.src.backend.models.enums;
 
 namespace Urbanflow.src.backend.models.gtfs
 {

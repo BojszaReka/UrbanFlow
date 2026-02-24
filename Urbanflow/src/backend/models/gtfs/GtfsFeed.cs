@@ -1,10 +1,14 @@
 ﻿using GTFS;
 using GTFS.Entities;
+using NetTopologySuite.EdgeGraph;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Urbanflow.src.backend.db;
-using Urbanflow.src.backend.enums;
 using Urbanflow.src.backend.models.DTO;
+using Urbanflow.src.backend.models.enums;
+using Urbanflow.src.backend.models.graph;
+using Urbanflow.src.backend.models.util;
 
 namespace Urbanflow.src.backend.models.gtfs
 {
@@ -198,28 +202,28 @@ namespace Urbanflow.src.backend.models.gtfs
 
 
 		// Graph related methods
-		private List<(uint SequenceNumber, string StopId)> RouteStops(string routeId)
+		private Result<List<(uint SequenceNumber, string StopId)>> RouteStops(string routeId)
 		{
-			var route = Routes.Where(r => r.RouteId == routeId).FirstOrDefault();
-			if (route == null) throw new Exception("Route with RouteId does not exists");
+			var route = Routes.Where(r => r.RouteId == routeId).First();
+			if (route == null) return Result<List<(uint SequenceNumber, string StopId)>>.Failure("Route with RouteId does not exists");
 			return RouteStops(route.Id);
 		}
 
-		private List<(uint SequenceNumber, string StopId)> RouteStops(Guid routeId)
+		private Result<List<(uint SequenceNumber, string StopId)>> RouteStops(Guid routeId)
 		{
 			var routeStops = new List<(uint SequenceNumber, string StopId)>();
 
-			Route route = Routes.FirstOrDefault(r => r.Id == routeId)
-				?? throw new Exception("Route not found.");
+			Route route = Routes.First(r => r.Id == routeId);
+			if(route == null)
+				return Result<List<(uint SequenceNumber, string StopId)>>.Failure($"Route not found. (ID: {routeId})");
 
 			var routeTrips = Trips.Where(t => t.RouteId == route.RouteId);
 
-			var trip = routeTrips.FirstOrDefault();
+			var trip = routeTrips.First();
 
 			if(trip == null)
 			{
-				return routeStops;
-				throw new Exception("No trips found for route.");
+				return Result<List<(uint SequenceNumber, string StopId)>>.Failure($"No trips found for route. (ID: {routeId})");
 			}
 
 			var stopTimes = StopTimes
@@ -228,47 +232,50 @@ namespace Urbanflow.src.backend.models.gtfs
 
 			foreach (var stopTime in stopTimes)
 			{
-				var stop = Stops.FirstOrDefault(s => s.StopId == stopTime.StopId)
-					?? throw new Exception("Stop not found.");
+				var stop = Stops.First(s => s.StopId == stopTime.StopId);
+				if(stop == null)
+					return Result<List<(uint SequenceNumber, string StopId)>>.Failure($"Stop not found for specific stoptime.");
 
 				routeStops.Add((stopTime.StopSequence, stop.StopId));
 			}
 
-			return routeStops;
+			return Result<List<(uint SequenceNumber, string StopId)>>.Success(routeStops);
 		}
 
-		private List<EdgeDataDTO> GetDataForEdgesOfRoute(string routeId) {
-			var route = Routes.Where(r => r.RouteId == routeId).FirstOrDefault();
-			if (route == null) throw new Exception("Route with RouteId does not exists");
+		private Result<HashSet<EdgeDataDTO>> GetDataForEdgesOfRoute(string routeId) {
+			var route = Routes.Where(r => r.RouteId == routeId).First();
+			if (route == null) return Result<HashSet<EdgeDataDTO>>.Failure("Route with RouteId does not exists");
 			return GetDataForEdgesOfRoute(route.Id);
 		}
 
-		public List<EdgeDataDTO> GetDataForEdgesOfRoute(Guid routeId)
+		public Result<HashSet<EdgeDataDTO>> GetDataForEdgesOfRoute(Guid routeId)
 		{
-			var edgeData = new List<EdgeDataDTO>();
+			var edgeData = new HashSet<EdgeDataDTO>();
 
-			Route route = Routes.FirstOrDefault(r => r.Id == routeId)
-				?? throw new Exception("Route not found.");
+			Route route = Routes.First(r => r.Id == routeId);
+			
+			if(route == null)
+				return Result<HashSet<EdgeDataDTO>>.Failure($"Route not found (ID: {routeId}).");
 
 			string rId = route.RouteId;
-			var routeTrips = Trips.Where(t => t.RouteId == route.RouteId);
-
-			var trip = routeTrips.FirstOrDefault();
+			var trip = Trips.Where(t => t.RouteId == route.RouteId).First();
 
 			if(trip == null)
 			{
-				return edgeData;
+				return Result<HashSet<EdgeDataDTO>>.Failure($"Trip not found for route {routeId}.");
 			}
 
 			var stopTimes = StopTimes.Where(st => st.TripId == trip.TripId).OrderBy(s => s.StopSequence).ToList();
 
 			for (int i = 0; i < stopTimes.Count - 1; i++)
 			{
-				var fromStop = Stops.FirstOrDefault(s => s.StopId == stopTimes[i].StopId)
-					?? throw new Exception("Stop not found.");
+				var fromStop = Stops.First(s => s.StopId == stopTimes[i].StopId);
+				if(fromStop == null)
+					return Result<HashSet<EdgeDataDTO>>.Failure($"Stop not found (ID: {stopTimes[i].StopId}).");
 
-				var toStop = Stops.FirstOrDefault(s => s.StopId == stopTimes[i + 1].StopId)
-					?? throw new Exception("Stop not found.");
+				var toStop = Stops.First(s => s.StopId == stopTimes[i + 1].StopId);
+				if (fromStop == null)
+					return Result<HashSet<EdgeDataDTO>>.Failure($"Stop not found (ID: {stopTimes[i+1].StopId}).");
 
 				var departureTime = TimeSpan.Parse(stopTimes[i].DepartureTime);
 				var arrivalTime = TimeSpan.Parse(stopTimes[i + 1].ArrivalTime);
@@ -284,28 +291,37 @@ namespace Urbanflow.src.backend.models.gtfs
 				});
 			}
 
-			return edgeData;
+			return Result<HashSet<EdgeDataDTO>>.Success(edgeData); ;
 		}
 
-		public List<EdgeDataDTO> GetDataForEdgesOfNetwork()
+		public Result<List<EdgeDataDTO>> GetDataForEdgesOfNetwork()
 		{
-			List<EdgeDataDTO> alledge = [];
+			HashSet<EdgeDataDTO> alledge = [];
 			foreach (var route in Routes)
 			{
-				var edgeData = GetDataForEdgesOfRoute(route.Id);
-				if (edgeData != null && edgeData.Count() > 0)
+				var edgeDataResult = GetDataForEdgesOfRoute(route.Id);
+				if (edgeDataResult.IsFailure)
+					return Result<List<EdgeDataDTO>>.Failure(edgeDataResult.Error);
+				var edgeData = edgeDataResult.Value;
+				if (edgeData == null && edgeData.Count < 0)
+					continue;
+				foreach (var edge in edgeData)						
 				{
-					alledge.AddRange(edgeData);
-				}
-				
+					alledge.Add(edge);
+				}				
 			}
-			return alledge;
+			if(alledge.Count < 0)
+				return Result<List<EdgeDataDTO>>.Failure("No data found for the edges of the network");
+			return Result<List<EdgeDataDTO>>.Success([.. alledge]);
 		}
 
-		public List<NodeDataDTO> GetStopsForNetworkGraph() {
-			List<NodeDataDTO> allStops = [];
+		public Result<List<NodeDataDTO>> GetStopsForNetworkGraph() {
+			HashSet<NodeDataDTO> allStops = [];
 			foreach (var route in Routes) { 
-				var routeStops = RouteStops(route.Id);
+				var routeStopsResult = RouteStops(route.Id);
+				if(routeStopsResult.IsFailure)
+					return Result < List < NodeDataDTO >>.Failure(routeStopsResult.Error);
+				var routeStops = routeStopsResult.Value;
 				foreach (var (SequenceNumber, StopId) in routeStops)
 				{
 					var stop= Stops.Where(s => s.StopId == StopId).FirstOrDefault();
@@ -321,20 +337,25 @@ namespace Urbanflow.src.backend.models.gtfs
 					allStops.Add(data);
 				}
 			}
-			return allStops;
+			if (allStops.Count < 0)
+				return Result<List<NodeDataDTO>>.Failure("No data found for the nodes of the network");
+			return Result<List<NodeDataDTO>>.Success([.. allStops]);
 		}
 
 
-		public List<NodeDataDTO> GetStopForRoute(string routeId) { 
+		public Result<List<NodeDataDTO>> GetStopForRoute(string routeId) { 
 			var route = Routes.Where(r => r.RouteId == routeId).FirstOrDefault();
-			if (route == null) throw new Exception("Route with RouteId does not exists");
+			if (route == null) return Result<List<NodeDataDTO>>.Failure("Route with RouteId does not exists");
 			return GetStopsForRoute(route.Id);
 		}
 
-		public List<NodeDataDTO> GetStopsForRoute(Guid routeId)
+		public Result<List<NodeDataDTO>> GetStopsForRoute(Guid routeId)
 		{
 			List<NodeDataDTO> allStops = [];
-			var routeStops = RouteStops(routeId);
+			var routeStopsResult = RouteStops(routeId);
+			if (routeStopsResult.IsFailure)
+				return Result<List<NodeDataDTO>>.Failure(routeStopsResult.Error);
+			var routeStops = routeStopsResult.Value;
 			foreach (var (SequenceNumber, StopId) in routeStops)
 			{
 				var stop = Stops.Where(s => s.StopId == StopId).FirstOrDefault();
@@ -348,15 +369,21 @@ namespace Urbanflow.src.backend.models.gtfs
 					continue;
 				allStops.Add(data);
 			}
-			return allStops;
+			if (allStops.Count > 0)
+				return Result<List<NodeDataDTO>>.Success(allStops);
+
+			return Result<List<NodeDataDTO>>.Failure($"No stops could be gathered for route (ID: {routeId})"); ;
 		}
 
 		public void SetNodeTypeForStops()
 		{
 			foreach (var route in Routes)
 			{
-				var routeStops = RouteStops(route.Id);
-				if (routeStops != null && routeStops.Count() > 0 ) {
+				var routeStopsResult = RouteStops(route.Id);
+				if (routeStopsResult.IsFailure)
+					continue;
+				var routeStops = routeStopsResult.Value;
+				if (routeStops != null && routeStops.Count > 0 ) {
 					var lastSequenceNumber = routeStops.Last().SequenceNumber;
 					foreach (var (SequenceNumber, StopId) in routeStops)
 					{

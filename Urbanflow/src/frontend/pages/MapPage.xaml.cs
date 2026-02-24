@@ -23,7 +23,7 @@ namespace Urbanflow.src.frontend.pages
 	{
 		private Workflow workflow;
 
-		public MapPage(Workflow workflow)
+		public MapPage(in Workflow workflow)
 		{
 			InitializeComponent();
 			this.workflow = workflow;

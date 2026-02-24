@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
 using Urbanflow.src.backend.db;
-using Urbanflow.src.backend.enums;
+using Urbanflow.src.backend.models.enums;
 
 namespace Urbanflow.src.backend.models.graph
 {

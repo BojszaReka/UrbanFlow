@@ -2,8 +2,10 @@
 using GTFS.Fields;
 using GTFS.IO;
 using Urbanflow.src.backend.db;
+using Urbanflow.src.backend.models;
 using Urbanflow.src.backend.models.DTO;
 using Urbanflow.src.backend.models.gtfs;
+using Urbanflow.src.backend.models.util;
 
 namespace Urbanflow.src.backend.services
 {
@@ -41,49 +43,49 @@ namespace Urbanflow.src.backend.services
 			return feed;
 		}
 
-		internal static List<Route> GetRoutesForWorkflow(Guid workflowId)
+		internal static List<Route> GetRoutesForWorkflow(in GtfsFeed feed)
 		{
 			throw new NotImplementedException();
 		}
 
-		public GraphDataDTO GetDataForNetworkGraph(Guid workflowId)
+		public static Result<GraphDataDTO> GetDataForNetworkGraph(in GtfsFeed feed)
 		{
-			using var db = new DatabaseContext();
-			var workflow = db.Workflows?.Find(workflowId);
-			if (workflow == null) { throw new("Workflow not found"); }
-
-			GtfsFeed feed = new(workflow.GtfsFeedId);
 			feed.SetNodeTypeForStops();
-			var networkEdgesData = feed.GetDataForEdgesOfNetwork();
-			var networkNodeData = feed.GetStopsForNetworkGraph();
+			var edgeResult = feed.GetDataForEdgesOfNetwork();
+			if (edgeResult.IsFailure)
+				return Result<GraphDataDTO>.Failure(edgeResult.Error);
+			var networkEdgesData = edgeResult.Value;
+
+			var nodeResult = feed.GetStopsForNetworkGraph();
+			if (edgeResult.IsFailure)
+				return Result<GraphDataDTO>.Failure(edgeResult.Error);
+			var networkNodeData = nodeResult.Value;
 
 			return new GraphDataDTO(networkEdgesData, networkNodeData);
 		}
 
-		public GraphDataDTO GetDataForRouteGraph(Guid workflowId, Guid routeId)
+		public static Result<GraphDataDTO> GetDataForRouteGraph(in GtfsFeed feed, Guid routeId)
 		{
-			using var db = new DatabaseContext();
-			var workflow = db.Workflows?.Find(workflowId);
-			if (workflow == null) { throw new("Workflow not found"); }
-
-			GtfsFeed feed = new(workflow.GtfsFeedId);
 			string name = $"Route {feed.GetRouteName(routeId)} graph";
-			var routeEdgesData = feed.GetDataForEdgesOfRoute(routeId);
-			var routeNodeData = feed.GetStopsForRoute(routeId);
+			var edgeResult = feed.GetDataForEdgesOfRoute(routeId);
+			if (edgeResult.IsFailure)
+				return Result<GraphDataDTO>.Failure(edgeResult.Error);
+			var routeEdgesData = edgeResult.Value;
 
-			return new GraphDataDTO(routeEdgesData, routeNodeData, name);
+			var nodeResult = feed.GetStopsForRoute(routeId);
+			if (nodeResult.IsFailure)
+				return Result<GraphDataDTO>.Failure(nodeResult.Error);
+			var routeNodeData = nodeResult.Value;
+
+			return new GraphDataDTO(routeEdgesData.ToList(), routeNodeData, name);
 		}
 
-		public List<Guid> GetRouteIds(Guid workflowId)
+		public static Result<List<Guid>> GetRouteIds(in GtfsFeed feed)
 		{
-			using var db = new DatabaseContext();
-			var workflow = db.Workflows?.Find(workflowId);
-			if (workflow == null) { throw new("Workflow not found"); }
-
-			GtfsFeed feed = new(workflow.GtfsFeedId);
-
-			return [.. feed.Routes.Select(r => r.Id)];
-
+			List<Guid> routeIds = [.. feed.Routes.Select(r => r.Id)];
+			if(routeIds.Any())
+				return Result<List<Guid>>.Success(routeIds);
+			return Result<List<Guid>>.Failure("Couln't get route ids");
 		}
 	}
 }

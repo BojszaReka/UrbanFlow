@@ -1,6 +1,8 @@
-﻿using System.Windows.Controls;
+﻿using System.Windows;
+using System.Windows.Controls;
 using Urbanflow.src.backend.models;
 using Urbanflow.src.backend.models.gtfs;
+using Urbanflow.src.backend.models.util;
 using Urbanflow.src.backend.services;
 
 namespace Urbanflow.src.frontend.pages
@@ -12,7 +14,7 @@ namespace Urbanflow.src.frontend.pages
 	{
 		private readonly Workflow workflow;
 
-		public NetworkPage(Workflow workflow)
+		public NetworkPage(in Workflow workflow)
 		{
 			InitializeComponent();
 			this.workflow = workflow;
@@ -20,8 +22,12 @@ namespace Urbanflow.src.frontend.pages
 
 		private void LoadRouteNames()
 		{
-
-			List<Route> routes = GtfsManagerService.GetRoutesForWorkflow(workflow.Id);
+			Result<HashSet<Route>> result = workflow.GetAllRoutes();
+			if (result.IsFailure)
+			{
+				MessageBox.Show(result.Error, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+			}
+			HashSet<Route> routes = result.Value;
 
 			RouteNamesComboBox.Items.Clear();
 
