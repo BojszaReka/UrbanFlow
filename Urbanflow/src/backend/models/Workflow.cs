@@ -118,11 +118,36 @@ namespace Urbanflow.src.backend.models
 				if(graphsResult.IsFailure)
 					return Result<Graph>.Failure(graphsResult.Error);
 				Graphs = graphsResult.Value;
+			}else if (!Graphs.Where(g => g.Type == EGraphType.Network).Any() && Graphs.Count > 0)
+			{
+				var networkResult = GtfsManagerService.GetDataForNetworkGraph(GtfsFeed);
+				if (networkResult.IsFailure)
+					return Result<Graph>.Failure(networkResult.Error);
+				var graphDataDTO = networkResult.Value;
+
+				var routesResult = GtfsManagerService.GetRouteIds(GtfsFeed);
+				if (routesResult.IsFailure)
+					return Result<Graph>.Failure(routesResult.Error);
+				var routeIds = routesResult.Value;
+
+				Dictionary<Guid, GraphDataDTO> routeGraphDTO = [];
+				foreach (var routeId in routeIds)
+				{
+					var routeDataRes = GtfsManagerService.GetDataForRouteGraph(GtfsFeed, routeId);
+					if (routeDataRes.IsFailure)
+						return Result<Graph>.Failure(routesResult.Error);
+					routeGraphDTO[routeId] = routeDataRes.Value;
+				}
+
+				var graphsResult = GraphManagerService.SafeGraphGeneration(Id, Graphs, graphDataDTO, routeGraphDTO);
+				if (graphsResult.IsFailure)
+					return Result<Graph>.Failure(graphsResult.Error);
+				Graphs = graphsResult.Value;
 			}
-			
+
 
 			var networkGraph = Graphs.Where(g => g.Type == EGraphType.Network).ToList();
-			if(!networkGraph.Any())
+			if (!networkGraph.Any()) 
 				return Result<Graph>.Failure("No network graphs found");
 			if(networkGraph.Count() > 0)
 				return Result<Graph>.Failure("Multiple network graphs found");
