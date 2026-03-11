@@ -6,14 +6,14 @@ namespace Urbanflow.src.backend.models.ga
 {
 	public class NetworkInformation
 	{
-		public List<Guid> Terminals { get; set; }
-		public List<Guid> Hubs { get; set; }
-		public List<Guid> GenericStops { get; set; }
+		public List<Guid> Terminals { get; set; } = new List<Guid>();
+		public List<Guid> Hubs { get; set; } = new List<Guid>();
+		public List<Guid> GenericStops { get; set; } = new List<Guid>();
 
-		//Összeköttetési mátrix, ha x=y akk -1
-		//ha x-ből y-ba nem megy út 0
-		//ha x-ből y-ba megy út akkor n, ami a súlya az élnek
-		public HashSet<(Guid StopAxisX, Guid StopAxisY)> StopConnectivityMatrix { get; set; }
+		//Minden megállóhoz tartozik egy lista
+		// aa lista tartalmazza azokat a megállókat amivel közvetlen össze van kötve, valamint az él súlyával
+		public Dictionary<Guid, List<(Guid Destination, double Weight)>> StopConnectivityMatrix { get; set; }
+			= new Dictionary<Guid, List<(Guid, double)>>();
 
 	}
 }

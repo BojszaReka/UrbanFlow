@@ -9,7 +9,7 @@ namespace Urbanflow.src.backend.models.ga
 	public class Population
 	{
 		public int GenerationID { get; set; }
-		public List<Genome> Genomes { get; set; }
+		public List<Genome> Genomes { get; set; } = new List<Genome>();
 
 		//helper values
 		private int GenomeCounter { get; set; } = 0;
@@ -47,6 +47,9 @@ namespace Urbanflow.src.backend.models.ga
 			}
 
 			List<Genome> newGenomes = new List<Genome>();
+			var sortedGenomes = Genomes.OrderBy(g => g.FitnessValue).ToList();
+			var random = new Random();
+
 			for (int i = 1; i <= settings.PopulationSize; i++)
 			{
 				// birthmode is random
@@ -57,13 +60,13 @@ namespace Urbanflow.src.backend.models.ga
 				{
 					case "crossing":
 						// choose them somehow based on fitness value
-						Genome parent_1 = null;
-						Genome parent_2 = null;
-						g = new Genome(GenomeCounter++, GenerationID + 1, parent_1, parent_2, settings.UserOptimizationParameters, step);
+						Genome parent_1 = GAUtil.TournamentSelect(sortedGenomes, 3, random); 
+						Genome parent_2 = GAUtil.TournamentSelect(sortedGenomes, 3, random); 
+						g = new Genome(GenomeCounter++, GenerationID + 1, parent_1, parent_2, settings.UserOptimizationParameters, network, step);
 						break;
 					case "mutation":
-						Genome parent = null;
-						g = new Genome(GenomeCounter++, GenerationID + 1, parent, settings.UserOptimizationParameters, step);
+						Genome parent = GAUtil.TournamentSelect(sortedGenomes, 3, random);
+						g = new Genome(GenomeCounter++, GenerationID + 1, parent, settings.UserOptimizationParameters, network, step);
 						break;
 					default:
 						g = new Genome(GenomeCounter++, GenerationID + 1, settings.UserOptimizationParameters, network);

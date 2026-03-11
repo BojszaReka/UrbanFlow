@@ -16,7 +16,6 @@ namespace Urbanflow.src.backend.models.ga
 		public int Fitness_MaximalAllowedChangeParameter { get; set; }
 		public int Fitness_FleetCapacityParameter { get; set; }
 		public int Fitness_PreferedWaitingMinutesParameter { get; set; }
-		
-
+		public int Genome_RouteCount { get; internal set; }
 	}
 }
