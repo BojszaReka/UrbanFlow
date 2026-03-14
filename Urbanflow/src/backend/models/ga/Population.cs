@@ -9,7 +9,7 @@ namespace Urbanflow.src.backend.models.ga
 	public class Population
 	{
 		public int GenerationID { get; set; }
-		public List<Genome> Genomes { get; set; } = new List<Genome>();
+		public List<Genome> Genomes { get; set; } = [];
 
 		//helper values
 		private int GenomeCounter { get; set; } = 0;
@@ -29,7 +29,7 @@ namespace Urbanflow.src.backend.models.ga
 
 		public Result<List<Genome>> PopulateByIntializingGenomes(in OptimizationSettings settings, in NetworkInformation network)
 		{
-			List<Genome> newGenomes = new List<Genome>();
+			List<Genome> newGenomes = [];
 			for (int i = 0; i < settings.PopulationSize; i++)
 			{
 				var g = new Genome(GenomeCounter++, GenerationID, settings.UserOptimizationParameters, network);
@@ -40,32 +40,42 @@ namespace Urbanflow.src.backend.models.ga
 		}
 
 		public Result<List<Genome>> PopulateByCreatingNewGenomes(in OptimizationSettings settings, in NetworkInformation network, string step = "")
-		{
+		{			
 			if (Genomes == null || Genomes.Count == 0)
 			{
 				return Result<List<Genome>>.Failure($"Current population empty, can't create new genomes. (GenerationID: {GenerationID})");
 			}
 
-			List<Genome> newGenomes = new List<Genome>();
+			string[] birthmodes = ["crossing", "mutation"];
+			List<Genome> newGenomes = [];
 			var sortedGenomes = Genomes.OrderBy(g => g.FitnessValue).ToList();
 			var random = new Random();
 
 			for (int i = 1; i <= settings.PopulationSize; i++)
 			{
-				// birthmode is random
-				string birthMode = "";
-				// choose on random: 1 or 2 genome
+				string birthMode = birthmodes[random.Next(0, 1)];
 				Genome g;
+
+				var tournamentResult = GAUtil.TournamentSelect(sortedGenomes, 3, random);
+				if (tournamentResult.IsFailure)
+				{
+					return Result<List<Genome>>.Failure($"Process of populating when creating new genomes failed at crossing when tried TournamentSelect for parent_1, iteration: {i}, error: {tournamentResult.Error}");
+				}
+
 				switch (birthMode)
 				{
 					case "crossing":
-						// choose them somehow based on fitness value
-						Genome parent_1 = GAUtil.TournamentSelect(sortedGenomes, 3, random); 
-						Genome parent_2 = GAUtil.TournamentSelect(sortedGenomes, 3, random); 
+						Genome parent_1 = tournamentResult.Value;
+						tournamentResult = GAUtil.TournamentSelect(sortedGenomes, 3, random);
+						if (tournamentResult.IsFailure)
+						{
+							return Result<List<Genome>>.Failure($"Process of populating when creating new genomes failed at crossing when tried TournamentSelect for parent_2, iteration: {i}, error: {tournamentResult.Error}");
+						}
+						Genome parent_2 = tournamentResult.Value;
 						g = new Genome(GenomeCounter++, GenerationID + 1, parent_1, parent_2, settings.UserOptimizationParameters, network, step);
 						break;
 					case "mutation":
-						Genome parent = GAUtil.TournamentSelect(sortedGenomes, 3, random);
+						Genome parent = tournamentResult.Value;
 						g = new Genome(GenomeCounter++, GenerationID + 1, parent, settings.UserOptimizationParameters, network, step);
 						break;
 					default:
@@ -87,11 +97,9 @@ namespace Urbanflow.src.backend.models.ga
 			}
 			IEnumerable<Genome[]> populationSplit = Genomes.OrderBy(g => g.FitnessValue).Chunk(settings.PopulationSize);
 			var newPopulationGenomes = populationSplit.First();
-			Population nextPopulation = new Population(GenerationID + 1, GenomeCounter, newPopulationGenomes);
+			Population nextPopulation = new(GenerationID + 1, GenomeCounter, newPopulationGenomes);
 			return Result<Population>.Success(nextPopulation);
 		}
-
 		
-
 	}
 }

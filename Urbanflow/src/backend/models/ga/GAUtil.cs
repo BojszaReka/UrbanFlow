@@ -61,9 +61,9 @@ namespace Urbanflow.src.backend.models.ga
 			return Result<List<Guid>>.Success(path);
 		}
 
-		public static Genome TournamentSelect(in List<Genome> pop, int k, Random rnd)
+		public static Result<Genome> TournamentSelect(in List<Genome> pop, int k, Random rnd)
 		{
-			Genome best = null;
+			Genome? best = null;
 			for (int i = 0; i < k; i++)
 			{
 				var candidate = pop[rnd.Next(pop.Count)];
@@ -72,7 +72,10 @@ namespace Urbanflow.src.backend.models.ga
 					best = candidate;
 				}
 			}
-			return best;
+			if (best != null)
+				return Result<Genome>.Success(best);
+			
+			return Result<Genome>.Failure("Couldn't select Genome at TournamentSelect");
 		}
 
 		public static double CalculateHubGiniIndex(in List<int> hubDegrees)
@@ -80,7 +83,7 @@ namespace Urbanflow.src.backend.models.ga
 			if (hubDegrees == null || hubDegrees.Count == 0) return 0;
 
 			int C = hubDegrees.Count;
-			int[] f = hubDegrees.ToArray();
+			int[] f = [.. hubDegrees];
 
 			// Szigorúan növekvő sorrendbe rendezés a formula alkalmazásához
 			Array.Sort(f);
