@@ -171,7 +171,7 @@ namespace Urbanflow.src.backend.services
 		{
 			using var db = new DatabaseContext();
 			var existingCity = (db.Cities?.FirstOrDefault(c => c.Name == cityName)) ?? throw new Exception("City not found.");
-			var newWorkflow = new Workflow(workflowName, existingCity.Id, workflowDescription, existingCity.GtfsFeedId);
+			var newWorkflow = new Workflow(workflowName, existingCity, workflowDescription, existingCity.GtfsFeedId);
 			db.Workflows?.Add(newWorkflow);
 			db.SaveChanges();
 		}

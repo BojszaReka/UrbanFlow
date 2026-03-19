@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Urbanflow.src.backend.models.ga;
 using Urbanflow.src.backend.models.util;
+using Urbanflow.src.backend.test_automater;
 
 namespace Urbanflow.src.backend.services
 {
@@ -10,13 +11,19 @@ namespace Urbanflow.src.backend.services
 	{
 		public NetworkInformation NetworkInformation {  get; }
 		public OptimizationSettings OptimizationSettings { get; }
-
-		
+		public GAStatistics StatisticsCollector { get; }
 
 		public GAOptimizationService(in NetworkInformation networkInformation, in OptimizationSettings optimizationSettings)
 		{
 			NetworkInformation = networkInformation;
 			OptimizationSettings = optimizationSettings;
+		}
+
+		public GAOptimizationService(in NetworkInformation networkInformation, in OptimizationSettings settings, in GAStatistics statisticsCollector)
+		{
+			NetworkInformation = networkInformation;
+			OptimizationSettings = settings;
+			StatisticsCollector = statisticsCollector;
 		}
 
 		public Result<RunResults> RunGeneticAlgorithm(string Descriptor)

@@ -10,12 +10,15 @@ namespace Urbanflow.src.backend.models.ga
 		public List<Guid> Hubs { get; set; } = [];
 		public List<Guid> GenericStops { get; set; } = [];
 
+		public List<Guid> AllStops { get; set; } = [];
+
 		//Minden megállóhoz tartozik egy lista
 		// aa lista tartalmazza azokat a megállókat amivel közvetlen össze van kötve, valamint az él súlyával
 		public Dictionary<Guid, List<(Guid Destination, double Weight)>> StopConnectivityMatrix { get; set; }
 			= [];
 
-		public List<GenomeRoute> StaticRoutes { get; } = [];
+		public List<GenomeRoute> StaticRoutes { get; set; } = [];
+		public List<List<Guid>> Districts { get; set; } = [];
 
 	}
 }

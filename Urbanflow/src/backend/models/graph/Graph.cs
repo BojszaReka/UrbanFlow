@@ -128,8 +128,8 @@ namespace Urbanflow.src.backend.models.graph
 			Nodes.Add(node);
 			using var db = new DatabaseContext();
 			db.GraphNodes?.Add(new GraphNode(Id, node.Id));
-			LastUpdatedAt = DateTime.Now;
-			db.Graphs?.Update(this);
+			//LastUpdatedAt = DateTime.Now;
+			//db.Graphs?.Update(this);
 			db.SaveChanges();
 		}
 
@@ -148,8 +148,8 @@ namespace Urbanflow.src.backend.models.graph
 			if (graphNodesToRemove is not null)
 			{
 				db.GraphNodes?.RemoveRange(graphNodesToRemove);
-				LastUpdatedAt = DateTime.Now;
-				db.Graphs?.Update(this);
+				//LastUpdatedAt = DateTime.Now;
+				//db.Graphs?.Update(this);
 				db.SaveChanges();
 			}
 		}
@@ -168,8 +168,8 @@ namespace Urbanflow.src.backend.models.graph
 			Edges.Add(edge);
 			using var db = new DatabaseContext();
 			db.GraphEdges?.Add(new GraphEdge(Id, edge.Id));
-			LastUpdatedAt = DateTime.Now;
-			db.Graphs?.Update(this);
+			//LastUpdatedAt = DateTime.Now;
+			//db.Graphs?.Update(this);
 			db.SaveChanges();
 		}
 
@@ -189,8 +189,8 @@ namespace Urbanflow.src.backend.models.graph
 			if (graphEdgesToRemove is not null)
 			{
 				db.GraphEdges?.RemoveRange(graphEdgesToRemove);
-				LastUpdatedAt = DateTime.Now;
-				db.Graphs?.Update(this);
+				//LastUpdatedAt = DateTime.Now;
+				//db.Graphs?.Update(this);
 				db.SaveChanges();
 			}
 		}

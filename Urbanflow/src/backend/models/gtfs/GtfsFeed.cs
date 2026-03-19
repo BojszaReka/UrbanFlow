@@ -7,6 +7,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using Urbanflow.src.backend.db;
 using Urbanflow.src.backend.models.DTO;
 using Urbanflow.src.backend.models.enums;
+using Urbanflow.src.backend.models.ga;
 using Urbanflow.src.backend.models.graph;
 using Urbanflow.src.backend.models.util;
 
@@ -117,6 +118,7 @@ namespace Urbanflow.src.backend.models.gtfs
 			this.Stops = [.. context.Stops.Where(a => a.GtfsFeedId == id)];
 			this.StopTimes = [.. context.StopTimes.Where(a => a.GtfsFeedId == id)];
 			this.Trips = [.. context.Trips.Where(a => a.GtfsFeedId == id)];
+			Console.WriteLine();
 		}
 
 		public void UpdateDatabase()
@@ -211,35 +213,35 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		private Result<List<(uint SequenceNumber, string StopId)>> RouteStops(Guid routeId)
 		{
-			var routeStops = new List<(uint SequenceNumber, string StopId)>();
+			// Use dictionary for O(1) lookups
+			var route = Routes.FirstOrDefault(r => r.Id == routeId);
+			if (route == null)
+				return Result<List<(uint, string)>>.Failure($"Route not found. (ID: {routeId})");
 
-			Route route = Routes.First(r => r.Id == routeId);
-			if(route == null)
-				return Result<List<(uint SequenceNumber, string StopId)>>.Failure($"Route not found. (ID: {routeId})");
+			var trip = Trips.FirstOrDefault(t => t.RouteId == route.RouteId);
+			if (trip == null)
+				return Result<List<(uint, string)>>.Failure($"No trips found for route. (ID: {routeId})");
 
-			var routeTrips = Trips.Where(t => t.RouteId == route.RouteId);
-
-			var trip = routeTrips.First();
-
-			if(trip == null)
-			{
-				return Result<List<(uint SequenceNumber, string StopId)>>.Failure($"No trips found for route. (ID: {routeId})");
-			}
-
+			// Materialize once and sort once
 			var stopTimes = StopTimes
 				.Where(st => st.TripId == trip.TripId)
-				.OrderBy(st => st.StopSequence);
+				.OrderBy(st => st.StopSequence)
+				.ToList();
+
+			// Pre-index stops for fast lookup
+			var stopDict = Stops.ToDictionary(s => s.StopId);
+
+			var routeStops = new List<(uint SequenceNumber, string StopId)>(stopTimes.Count);
 
 			foreach (var stopTime in stopTimes)
 			{
-				var stop = Stops.First(s => s.StopId == stopTime.StopId);
-				if(stop == null)
-					return Result<List<(uint SequenceNumber, string StopId)>>.Failure($"Stop not found for specific stoptime.");
+				if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
+					return Result<List<(uint, string)>>.Failure("Stop not found for specific stoptime.");
 
 				routeStops.Add((stopTime.StopSequence, stop.StopId));
 			}
 
-			return Result<List<(uint SequenceNumber, string StopId)>>.Success(routeStops);
+			return Result<List<(uint, string)>>.Success(routeStops);
 		}
 
 		private Result<HashSet<EdgeDataDTO>> GetDataForEdgesOfRoute(string routeId) {
@@ -250,40 +252,42 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public Result<HashSet<EdgeDataDTO>> GetDataForEdgesOfRoute(Guid routeId)
 		{
-			var edgeData = new HashSet<EdgeDataDTO>();
-
-			Route route = Routes.First(r => r.Id == routeId);
-			
-			if(route == null)
+			var route = Routes.First(r => r.Id == routeId);
+			if (route == null)
 				return Result<HashSet<EdgeDataDTO>>.Failure($"Route not found (ID: {routeId}).");
 
-			string rId = route.RouteId;
-			var trip = Trips.Where(t => t.RouteId == route.RouteId).First();
+			var trip = Trips.FirstOrDefault(t => t.RouteId == route.RouteId);
+			if (trip == null)
+				return Result<HashSet<EdgeDataDTO>>.Failure($"GDFEOR: Trip not found for route {routeId}.");
 
-			if(trip == null)
-			{
-				return Result<HashSet<EdgeDataDTO>>.Failure($"Trip not found for route {routeId}.");
-			}
+			var stopTimes = StopTimes
+				.Where(st => st.TripId == trip.TripId)
+				.OrderBy(st => st.StopSequence)
+				.ToList();
 
-			var stopTimes = StopTimes.Where(st => st.TripId == trip.TripId).OrderBy(s => s.StopSequence).ToList();
+			// Pre-index stops for O(1) lookup
+			var stopDict = Stops.ToDictionary(s => s.StopId);
+
+			var edgeData = new HashSet<EdgeDataDTO>();
 
 			for (int i = 0; i < stopTimes.Count - 1; i++)
 			{
-				var fromStop = Stops.First(s => s.StopId == stopTimes[i].StopId);
-				if(fromStop == null)
-					return Result<HashSet<EdgeDataDTO>>.Failure($"Stop not found (ID: {stopTimes[i].StopId}).");
+				var fromStopTime = stopTimes[i];
+				var toStopTime = stopTimes[i + 1];
 
-				var toStop = Stops.First(s => s.StopId == stopTimes[i + 1].StopId);
-				if (fromStop == null)
-					return Result<HashSet<EdgeDataDTO>>.Failure($"Stop not found (ID: {stopTimes[i+1].StopId}).");
+				if (!stopDict.TryGetValue(fromStopTime.StopId, out var fromStop))
+					return Result<HashSet<EdgeDataDTO>>.Failure($"Stop not found (ID: {fromStopTime.StopId}).");
 
-				var departureTime = TimeSpan.Parse(stopTimes[i].DepartureTime);
-				var arrivalTime = TimeSpan.Parse(stopTimes[i + 1].ArrivalTime);
+				if (!stopDict.TryGetValue(toStopTime.StopId, out var toStop))
+					return Result<HashSet<EdgeDataDTO>>.Failure($"Stop not found (ID: {toStopTime.StopId}).");
 
-				int travelTimeMinutes =
-					(int)(arrivalTime - departureTime).TotalMinutes;
+				// Parse once
+				var departureTime = TimeSpan.Parse(fromStopTime.DepartureTime);
+				var arrivalTime = TimeSpan.Parse(toStopTime.ArrivalTime);
 
-				edgeData.Add(new EdgeDataDTO()
+				int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
+
+				edgeData.Add(new EdgeDataDTO
 				{
 					FromStopId = GetParentStopOfStop(fromStop.Id).Id,
 					ToStopId = GetParentStopOfStop(toStop.Id).Id,
@@ -291,110 +295,210 @@ namespace Urbanflow.src.backend.models.gtfs
 				});
 			}
 
-			return Result<HashSet<EdgeDataDTO>>.Success(edgeData); ;
+			return Result<HashSet<EdgeDataDTO>>.Success(edgeData);
 		}
 
 		public Result<List<EdgeDataDTO>> GetDataForEdgesOfNetwork()
 		{
-			HashSet<EdgeDataDTO> alledge = [];
+			if (Routes == null || Routes.Count == 0)
+				return Result<List<EdgeDataDTO>>.Failure("No routes found.");
+
+			// Precompute lookups ONCE
+			var tripsByRoute = Trips
+				.GroupBy(t => t.RouteId)
+				.ToDictionary(g => g.Key, g => g.First());
+
+			var stopTimesByTrip = StopTimes
+				.GroupBy(st => st.TripId)
+				.ToDictionary(g => g.Key, g => g.OrderBy(st => st.StopSequence).ToList());
+
+			var stopDict = Stops.ToDictionary(s => s.StopId);
+
+			var allEdges = new HashSet<(Guid, Guid, int)>();
+
 			foreach (var route in Routes)
 			{
-				var edgeDataResult = GetDataForEdgesOfRoute(route.Id);
-				if (edgeDataResult.IsFailure)
-					return Result<List<EdgeDataDTO>>.Failure(edgeDataResult.Error);
-				var edgeData = edgeDataResult.Value;
-				if (edgeData == null && edgeData.Count < 0)
+				if (!tripsByRoute.TryGetValue(route.RouteId, out var trip))
 					continue;
-				foreach (var edge in edgeData)						
-				{
-					alledge.Add(edge);
-				}				
-			}
-			if(alledge.Count < 0)
-				return Result<List<EdgeDataDTO>>.Failure("No data found for the edges of the network");
-			return Result<List<EdgeDataDTO>>.Success([.. alledge]);
-		}
 
-		public Result<List<NodeDataDTO>> GetStopsForNetworkGraph() {
-			HashSet<NodeDataDTO> allStops = [];
-			foreach (var route in Routes) { 
-				var routeStopsResult = RouteStops(route.Id);
-				if(routeStopsResult.IsFailure)
-					return Result < List < NodeDataDTO >>.Failure(routeStopsResult.Error);
-				var routeStops = routeStopsResult.Value;
-				foreach (var (SequenceNumber, StopId) in routeStops)
-				{
-					var stop= Stops.Where(s => s.StopId == StopId).FirstOrDefault();
-					if (stop == null)
-						continue;
+				if (!stopTimesByTrip.TryGetValue(trip.TripId, out var stopTimes))
+					continue;
 
-					var data = new NodeDataDTO()
-					{
-						Stop = GetParentStopOfStop(stop.Id)
-					};
-					if (allStops != null && allStops.Contains(data))
-						continue;
-					allStops.Add(data);
+				for (int i = 0; i < stopTimes.Count - 1; i++)
+				{
+					var fromStopTime = stopTimes[i];
+					var toStopTime = stopTimes[i + 1];
+
+					if (!stopDict.TryGetValue(fromStopTime.StopId, out var fromStop))
+						return Result<List<EdgeDataDTO>>.Failure($"Stop not found (ID: {fromStopTime.StopId}).");
+
+					if (!stopDict.TryGetValue(toStopTime.StopId, out var toStop))
+						return Result<List<EdgeDataDTO>>.Failure($"Stop not found (ID: {toStopTime.StopId}).");
+
+					var departureTime = TimeSpan.Parse(fromStopTime.DepartureTime);
+					var arrivalTime = TimeSpan.Parse(toStopTime.ArrivalTime);
+
+					int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
+
+					allEdges.Add((GetParentStopOfStop(fromStop.Id).Id, GetParentStopOfStop(toStop.Id).Id, travelTimeMinutes));
 				}
 			}
-			if (allStops.Count < 0)
+
+			if (allEdges.Count == 0)
+				return Result<List<EdgeDataDTO>>.Failure("No data found for the edges of the network");
+
+			HashSet<EdgeDataDTO> dataDTOs = new HashSet<EdgeDataDTO>();
+			foreach (var (stop1id, stop2id, minutes) in allEdges)
+			{
+				dataDTOs.Add(new EdgeDataDTO
+				{
+					FromStopId = stop1id,
+					ToStopId = stop2id,
+					TravelTimeMinutes = minutes,
+				});
+			}
+
+			return Result<List<EdgeDataDTO>>.Success(dataDTOs.ToList());
+		}
+
+		public Result<List<NodeDataDTO>> GetStopsForNetworkGraph()
+		{
+			if (Routes == null || Routes.Count == 0)
+				return Result<List<NodeDataDTO>>.Failure("No routes found.");
+
+			// Precompute everything ONCE
+			var tripsByRoute = Trips
+				.GroupBy(t => t.RouteId)
+				.ToDictionary(g => g.Key, g => g.First());
+
+			var stopTimesByTrip = StopTimes
+				.GroupBy(st => st.TripId)
+				.ToDictionary(g => g.Key, g => g.ToList());
+
+			var stopDict = Stops.ToDictionary(s => s.StopId);
+
+			var allStops = new HashSet<Stop>();
+
+			foreach (var route in Routes)
+			{
+				if (!tripsByRoute.TryGetValue(route.RouteId, out var trip))
+					continue;
+
+				if (!stopTimesByTrip.TryGetValue(trip.TripId, out var stopTimes))
+					continue;
+
+				foreach (var stopTime in stopTimes)
+				{
+					if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
+						continue;
+
+					allStops.Add(GetParentStopOfStop(stop.Id)); 
+				}
+			}
+
+			if (allStops.Count == 0)
 				return Result<List<NodeDataDTO>>.Failure("No data found for the nodes of the network");
-			return Result<List<NodeDataDTO>>.Success([.. allStops]);
+
+			List<NodeDataDTO> dataDTOs = new List<NodeDataDTO>();
+			foreach (var stop in allStops) {
+				dataDTOs.Add(new NodeDataDTO
+				{
+					Stop = stop
+				});
+			}
+
+			return Result<List<NodeDataDTO>>.Success(dataDTOs);
 		}
 
 
-		public Result<List<NodeDataDTO>> GetStopForRoute(string routeId) { 
-			var route = Routes.Where(r => r.RouteId == routeId).FirstOrDefault();
-			if (route == null) return Result<List<NodeDataDTO>>.Failure("Route with RouteId does not exists");
+		public Result<List<NodeDataDTO>> GetStopForRoute(string routeId)
+		{
+			var route = Routes.FirstOrDefault(r => r.RouteId == routeId);
+			if (route == null)
+				return Result<List<NodeDataDTO>>.Failure("Route with RouteId does not exist");
+
 			return GetStopsForRoute(route.Id);
 		}
 
 		public Result<List<NodeDataDTO>> GetStopsForRoute(Guid routeId)
 		{
-			List<NodeDataDTO> allStops = [];
-			var routeStopsResult = RouteStops(routeId);
-			if (routeStopsResult.IsFailure)
-				return Result<List<NodeDataDTO>>.Failure(routeStopsResult.Error);
-			var routeStops = routeStopsResult.Value;
-			foreach (var (SequenceNumber, StopId) in routeStops)
+			var route = Routes.FirstOrDefault(r => r.Id == routeId);
+			if (route == null)
+				return Result<List<NodeDataDTO>>.Failure($"Route not found (ID: {routeId})");
+
+			var trip = Trips.FirstOrDefault(t => t.RouteId == route.RouteId);
+			if (trip == null)
+				return Result<List<NodeDataDTO>>.Failure($"No trip found for route (ID: {routeId})");
+
+			var stopTimes = StopTimes
+				.Where(st => st.TripId == trip.TripId)
+				.ToList();
+
+			// Precompute lookup
+			var stopDict = Stops.ToDictionary(s => s.StopId);
+
+			var uniqueStops = new HashSet<NodeDataDTO>();
+
+			foreach (var stopTime in stopTimes)
 			{
-				var stop = Stops.Where(s => s.StopId == StopId).FirstOrDefault();
-				if (stop == null)
+				if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
 					continue;
-				var data = new NodeDataDTO()
+
+				var data = new NodeDataDTO
 				{
 					Stop = GetParentStopOfStop(stop.Id)
 				};
-				if (allStops != null && allStops.Contains(data))
-					continue;
-				allStops.Add(data);
-			}
-			if (allStops.Count > 0)
-				return Result<List<NodeDataDTO>>.Success(allStops);
 
-			return Result<List<NodeDataDTO>>.Failure($"No stops could be gathered for route (ID: {routeId})"); ;
+				uniqueStops.Add(data); // HashSet handles duplicates
+			}
+
+			if (uniqueStops.Count == 0)
+				return Result<List<NodeDataDTO>>.Failure($"No stops could be gathered for route (ID: {routeId})");
+
+			return Result<List<NodeDataDTO>>.Success(uniqueStops.ToList());
 		}
 
 		public void SetNodeTypeForStops()
 		{
+			if (Routes == null || Routes.Count == 0)
+				return;
+
+			// Precompute lookups ONCE
+			var tripsByRoute = Trips
+				.GroupBy(t => t.RouteId)
+				.ToDictionary(g => g.Key, g => g.First());
+
+			var stopTimesByTrip = StopTimes
+				.GroupBy(st => st.TripId)
+				.ToDictionary(g => g.Key, g => g.OrderBy(st => st.StopSequence).ToList());
+
+			var stopDict = Stops.ToDictionary(s => s.StopId);
+
 			foreach (var route in Routes)
 			{
-				var routeStopsResult = RouteStops(route.Id);
-				if (routeStopsResult.IsFailure)
+				if (!tripsByRoute.TryGetValue(route.RouteId, out var trip))
 					continue;
-				var routeStops = routeStopsResult.Value;
-				if (routeStops != null && routeStops.Count > 0 ) {
-					var lastSequenceNumber = routeStops.Last().SequenceNumber;
-					foreach (var (SequenceNumber, StopId) in routeStops)
-					{
-						Stop stop = Stops.Where(s => s.StopId == StopId).FirstOrDefault();
-						if (stop == null || stop.NodeType == ENodeType.Terminal)
-							continue;
 
-						if (SequenceNumber == 1 || SequenceNumber == lastSequenceNumber)
-							stop.NodeType = ENodeType.Terminal;
+				if (!stopTimesByTrip.TryGetValue(trip.TripId, out var stopTimes) || stopTimes.Count == 0)
+					continue;
+
+				int lastIndex = stopTimes.Count - 1;
+
+				for (int i = 0; i < stopTimes.Count; i++)
+				{
+					var stopTime = stopTimes[i];
+
+					if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
+						continue;
+
+					if (stop.NodeType == ENodeType.Terminal)
+						continue;
+
+					if (i == 0 || i == lastIndex)
+					{
+						stop.NodeType = ENodeType.Terminal;
 					}
-				}				
+				}
 			}
 
 			using var db = new DatabaseContext();
@@ -417,6 +521,31 @@ namespace Urbanflow.src.backend.models.gtfs
 				return parentStation;
 			}
 			return stop;
+		}
+
+		internal Dictionary<Guid, List<(Guid Destination, double Weight)>> ExtractStopConnectivityMatrix()
+		{
+			throw new NotImplementedException();
+		}
+
+		internal List<Guid> GatherAllStopIds()
+		{
+			throw new NotImplementedException();
+		}
+
+		internal List<(Guid, ENodeType)> ExtractClassifiedStops()
+		{
+			throw new NotImplementedException();
+		}
+
+		internal List<GenomeRoute> GatherStaticRoutes()
+		{
+			throw new NotImplementedException();
+		}
+
+		internal List<List<Guid>> CollectDistricts()
+		{
+			throw new NotImplementedException();
 		}
 
 		// ----------------------------

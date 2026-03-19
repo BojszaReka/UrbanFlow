@@ -33,7 +33,7 @@ namespace Urbanflow.src.frontend.pages
 
 		private void CreateGraph()
 		{
-			Result<Graph> result = workflow.GetNetWorkGraphData();
+			var result = workflow.GetNetWorkGraphData();
 			if (result.IsSuccess)
 			{
 				graphOnDisplay = result.Value;
@@ -47,7 +47,7 @@ namespace Urbanflow.src.frontend.pages
 
 		public async void OnLoaded(object source, EventArgs args)
 		{
-			//ConfigureGroupNodeStyles();
+			ConfigureGroupNodeStyles();
 			SetDefaultStyles();
 			// Populates the graph and overrides some styles and label models
 			await PopulateGraph();
@@ -84,6 +84,7 @@ namespace Urbanflow.src.frontend.pages
 
 		private async Task PopulateGraph()
 		{
+			if (graphOnDisplay == null) return;
 			var nodeLookup = graphOnDisplay.Nodes.ToDictionary(n => n.Id);
 			var graphNodeMap = new Dictionary<Guid, INode>();
 

@@ -2,10 +2,12 @@
 using Urbanflow.src.backend.db;
 using Urbanflow.src.backend.models.DTO;
 using Urbanflow.src.backend.models.enums;
+using Urbanflow.src.backend.models.ga;
 using Urbanflow.src.backend.models.graph;
 using Urbanflow.src.backend.models.gtfs;
 using Urbanflow.src.backend.models.util;
 using Urbanflow.src.backend.services;
+using Urbanflow.src.backend.test_automater;
 
 namespace Urbanflow.src.backend.models
 {
@@ -26,7 +28,7 @@ namespace Urbanflow.src.backend.models
 		public City City { get; set; }
 
 		[ForeignKey("GtfsFeedId")]
-		private readonly GtfsFeed GtfsFeed;
+		private GtfsFeed GtfsFeed;
 		[NotMapped]
 		private HashSet<Graph> Graphs;
 
@@ -36,8 +38,34 @@ namespace Urbanflow.src.backend.models
 		[NotMapped]
 		private readonly GraphManagerService graphManager;
 
+		[NotMapped]
+		private NetworkInformation networkInformation;
+		[NotMapped]
+		private GAOptimizationService gaOptimizationService;
+
 
 		public Workflow() { }
+
+		public Workflow(string name, City city, string description, Guid feedid)
+		{
+			Name = name;
+			CityId = city.Id;
+			City = city;
+			Description = description;
+			GtfsFeedId = feedid;
+
+			using var db = new DatabaseContext();
+			var feed = db.GtfsFeeds?.Where(g => g.Id == GtfsFeedId).FirstOrDefault();
+			if (feed == null)
+			{
+				throw new Exception("The attached feed does not exists");
+			}
+			
+			GtfsFeed = new GtfsFeed(GtfsFeedId);
+
+			gtfsManager = new GtfsManagerService();
+			graphManager = new GraphManagerService();
+		}
 
 		public Workflow(string name, Guid cityId, string description, Guid feedid)
 		{
@@ -47,17 +75,12 @@ namespace Urbanflow.src.backend.models
 			GtfsFeedId = feedid;
 
 			using var db = new DatabaseContext();
-			var feed = db.GtfsFeeds.Where(g => g.Id == GtfsFeedId).FirstOrDefault();
-			if (GtfsFeed == null)
+			var feed = db.GtfsFeeds?.Where(g => g.Id == GtfsFeedId).FirstOrDefault();
+			if (feed == null)
 			{
 				throw new Exception("The attached feed does not exists");
 			}
-			City = db.Cities.Where(c => c.Id == CityId).FirstOrDefault();
-			if (City == null)
-			{
-				throw new Exception("The atached city does not exists");
-			}
-
+			City = db.Cities?.Where(c => c.Id == CityId).FirstOrDefault() ?? throw new Exception("The atached city does not exists");
 			GtfsFeed = new GtfsFeed(GtfsFeedId);
 
 			gtfsManager = new GtfsManagerService();
@@ -67,15 +90,15 @@ namespace Urbanflow.src.backend.models
 		public Workflow(Guid workflowId)
 		{
 			using var db = new DatabaseContext();
-			var workflow = db.Workflows.Where(w => w.Id == workflowId).First() ?? throw new Exception("Workflow not found");
+			var workflow = db.Workflows?.Where(w => w.Id == workflowId).First() ?? throw new Exception("Workflow not found");
 			if (!IsActive)
 			{
 				throw new Exception("The workflow is deleted");
 			}
 
-			var feed = db.GtfsFeeds.Where(g => g.Id == workflow.GtfsFeedId).First() ?? throw new Exception("The attached feed does not exists");
+			var feed = db.GtfsFeeds?.Where(g => g.Id == workflow.GtfsFeedId).First() ?? throw new Exception("The attached feed does not exists");
 
-			City = db.Cities.Where(c => c.Id == workflow.CityId).First() ?? throw new Exception("The atached city does not exists");
+			City = db.Cities?.Where(c => c.Id == workflow.CityId).First() ?? throw new Exception("The atached city does not exists");
 
 			Id = workflow.Id;
 			GtfsFeedId = workflow.GtfsFeedId;
@@ -93,7 +116,13 @@ namespace Urbanflow.src.backend.models
 
 		internal Result<Graph> GetNetWorkGraphData()
 		{
-			if(Graphs == null || Graphs.Count == 0)
+			if(GtfsFeed == null)
+			{
+				return Result<Graph>.Failure("The feed is empty");
+			}
+
+
+			if((Graphs == null || Graphs.Count == 0))
 			{
 				var networkResult = GtfsManagerService.GetDataForNetworkGraph(GtfsFeed);
 				if (networkResult.IsFailure)
@@ -109,8 +138,9 @@ namespace Urbanflow.src.backend.models
 				foreach(var routeId in routeIds)
 				{
 					var routeDataRes = GtfsManagerService.GetDataForRouteGraph(GtfsFeed, routeId);
-					if(routeDataRes.IsFailure)
-						return Result<Graph>.Failure(routesResult.Error);
+					if (routeDataRes.IsFailure)
+						continue;
+						//return Result<Graph>.Failure(routeDataRes.Error);
 					routeGraphDTO[routeId] = routeDataRes.Value;
 				}
 
@@ -147,9 +177,9 @@ namespace Urbanflow.src.backend.models
 
 
 			var networkGraph = Graphs.Where(g => g.Type == EGraphType.Network).ToList();
-			if (!networkGraph.Any()) 
+			if (networkGraph.Count == 0) 
 				return Result<Graph>.Failure("No network graphs found");
-			if(networkGraph.Count() > 0)
+			if(networkGraph.Count > 1)
 				return Result<Graph>.Failure("Multiple network graphs found");
 			return Result<Graph>.Success(networkGraph.First());
 		}
@@ -157,6 +187,32 @@ namespace Urbanflow.src.backend.models
 		internal Result<HashSet<Route>> GetAllRoutes()
 		{
 			throw new NotImplementedException();
+		}
+
+		internal void SetNetworkinformationFromInnerGtfsFeed()
+		{
+			Result<NetworkInformation> networkInfoResult = gtfsManager.ExtractNetworkInformationForGA(GtfsFeed);
+			if(networkInfoResult.IsFailure) throw new Exception($"Setting network information for workflow is unsucsessful, because extraction from GTFS Feed failed, error: {networkInfoResult.Error}");
+			networkInformation = networkInfoResult.Value;
+		}
+
+		internal void CreateGAOptimizationService(in OptimizationSettings settings, GAStatistics statisticsCollector = null)
+		{
+			if(statisticsCollector != null)
+			{
+				gaOptimizationService = new GAOptimizationService(networkInformation, settings, statisticsCollector);
+			}
+			else
+			{
+				gaOptimizationService = new GAOptimizationService(networkInformation, settings);
+			}
+			
+		}
+
+		internal Result<RunResults> RunGA(string descriptor)
+		{
+			var runResult = gaOptimizationService.RunGeneticAlgorithm(descriptor);
+			return runResult;
 		}
 	}
 }

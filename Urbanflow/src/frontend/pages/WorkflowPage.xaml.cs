@@ -103,13 +103,16 @@ namespace Urbanflow.src.frontend.pages
 
 		private void RunWorkflow_Click(object sender, RoutedEventArgs e)
 		{
-			Workflow? workflow = GetWorkflowFromSender(sender);
-			if (workflow == null) return;
+			var workflowtemp = GetWorkflowFromSender(sender);
+			if (workflowtemp != null)
+			{
+				Workflow workflow = new Workflow(workflowtemp.Id);
 
-			SidebarWindow w = new(workflow);
-			w.Show();
+				SidebarWindow w = new(workflow);
+				w.Show();
 
-			Application.Current.MainWindow.Close();
+				Application.Current.MainWindow.Close();
+			}			
 		}
 
 

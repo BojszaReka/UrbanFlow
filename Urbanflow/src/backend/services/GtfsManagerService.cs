@@ -4,6 +4,8 @@ using GTFS.IO;
 using Urbanflow.src.backend.db;
 using Urbanflow.src.backend.models;
 using Urbanflow.src.backend.models.DTO;
+using Urbanflow.src.backend.models.enums;
+using Urbanflow.src.backend.models.ga;
 using Urbanflow.src.backend.models.gtfs;
 using Urbanflow.src.backend.models.util;
 
@@ -50,7 +52,7 @@ namespace Urbanflow.src.backend.services
 
 		public static Result<GraphDataDTO> GetDataForNetworkGraph(in GtfsFeed feed)
 		{
-			feed.SetNodeTypeForStops();
+			//feed.SetNodeTypeForStops();
 			var edgeResult = feed.GetDataForEdgesOfNetwork();
 			if (edgeResult.IsFailure)
 				return Result<GraphDataDTO>.Failure(edgeResult.Error);
@@ -87,5 +89,21 @@ namespace Urbanflow.src.backend.services
 				return Result<List<Guid>>.Success(routeIds);
 			return Result<List<Guid>>.Failure("Couln't get route ids");
 		}
+
+		public Result<NetworkInformation> ExtractNetworkInformationForGA(GtfsFeed feed)
+		{
+			NetworkInformation networkInformation = new NetworkInformation();
+			List<(Guid, ENodeType)> stopClassifications = feed.ExtractClassifiedStops();
+			//networkInformation.Terminals;
+			//networkInformation.Hubs;
+			//networkInformation.GenericStops;
+			networkInformation.AllStops = feed.GatherAllStopIds(); // turn return types into result format
+			networkInformation.StopConnectivityMatrix = feed.ExtractStopConnectivityMatrix();
+			networkInformation.StaticRoutes = feed.GatherStaticRoutes();
+			networkInformation.Districts = feed.CollectDistricts();
+			return Result<NetworkInformation>.Success(networkInformation);
+		}
+
+
 	}
 }
