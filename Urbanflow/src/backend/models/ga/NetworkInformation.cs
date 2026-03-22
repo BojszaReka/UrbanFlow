@@ -18,7 +18,7 @@ namespace Urbanflow.src.backend.models.ga
 			= [];
 
 		public List<GenomeRoute> StaticRoutes { get; set; } = [];
-		public List<List<Guid>> Districts { get; set; } = [];
+		public Dictionary<Guid, List<Guid>> Districts { get; set; } = [];
 
 
 

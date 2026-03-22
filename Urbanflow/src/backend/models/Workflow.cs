@@ -181,6 +181,7 @@ namespace Urbanflow.src.backend.models
 
 		internal void SetNetworkinformationFromInnerGtfsFeed()
 		{
+			//GtfsFeed.TryLoadingStopsTypes();
 			Result<NetworkInformation> networkInfoResult = gtfsManager.ExtractNetworkInformationForGA(GtfsFeed);
 			if(networkInfoResult.IsFailure) throw new Exception($"Setting network information for workflow is unsucsessful, because extraction from GTFS Feed failed, error: {networkInfoResult.Error}");
 			networkInformation = networkInfoResult.Value;

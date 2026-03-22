@@ -2,12 +2,13 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
+using Urbanflow.src.backend.models.enums;
 
 namespace Urbanflow.src.backend.models.util
 {
 	public class VeszpremDistrict
 	{
-		public static List<(string, List<string>)> DistrictNames = [
+		public readonly static List<(string, List<string>)> DistrictNames = [
 			("Bakonyalja", ["SA814", "SP1704", "SP1705", "SP1747", "SP1746", "SA815", "SA887", "SP1709", "SP1708", "SA831", "SP1706", "SP1707", "SA871", "SP1701", "SP1703", "SP1703", "SP1710", "SA870", "SP1711", "SP1856", "SP1632", "SA911", "SP1860"]),
 			("Belváros",["SA853", "SP1661", "SP1660", "SP1895", "SP1824", "SA855", "SA868", "SP1645", "SP1629", "SA875", "SP1664", "SP1630", "SA901", "SP1670", "SA888", "SP1696", "SP1698", "SP1697", "SP1730", "SP1731", "SA894", "SP1683", "SA816", "SP1694", "SP1826", "SP1858", "SP1693"]),
 			("Csatárhegy",["SP1891", "SA946", "SA933", "SP1867", "SP1890", "SP1900", "SA953", "SP1899", "SA827", "SP1677", "SA844", "SP1868", "SP1637"]),
@@ -29,5 +30,11 @@ namespace Urbanflow.src.backend.models.util
 			("Újtelep 2",["SA811", "SP1681", "SP1682", "SP1773", "SA832", "SA863", "SP1800", "SP1760", "SA891", "SP1759", "SP1875", "SA944"]),
 			("Veszprém völgy",["SA952", "SP1782", "SP1775", "SA885", "SP1780", "SP1779", "SP1774", "SA892", "SP1728", "SA905", "SP1729", "SA918", "SP1781", "SA919", "SP1734", "SP1735"])	
 			];
+
+		public readonly static List<(ENodeType, List<string>)> specificStops = [
+			(ENodeType.Terminal, ["SP1856", "SP1632", "SA911", "SP1860", "SP1881", "SA849", "SP1673", "SA828", "SP1635", "SP1863", "SP1674", "SP1857", "SA910", "SP1866", "SA938", "SP1751", "SA837", "SP1893", "SA947", "SP1892", "SP1882", "SA864", "SP1675", "SP1633", "SP1750", "SA818", "SP1891", "SA946", "SA869", "SP1658", "SA883", "SP1665", "SP1662", "SA845", "SP1771", "SA884", "SP1772"]),
+			(ENodeType.Junction, ["SA853", "SP1661", "SP1660", "SP1895", "SP1683", "SA816", "SP1694", "SP1826", "SP1858", "SP1693", "SP1861", "SP1679", "SA825", "SP1742", "SP1743", "SA850", "SP1864", "SA950", "SP1865", "SA866", "SP1668", "SP1621", "SP1728", "SA905", "SP1729", "SP1726",  "SP1898", "SP1725", "SP1727", "SP1730", "SP1731", "SA894", "SP1827", "SP1623", "SA813", "SP1872", "SP1669", "SA842", "SP1814", "SP1815"])
+			
+		];
 	}
 }

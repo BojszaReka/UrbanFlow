@@ -2,6 +2,7 @@
 using System.Windows.Controls;
 using Urbanflow.src.backend.models;
 using Urbanflow.src.backend.services;
+using Urbanflow.src.backend.test_automater;
 using Urbanflow.src.frontend.dialogs;
 
 namespace Urbanflow.src.frontend.pages
@@ -15,6 +16,8 @@ namespace Urbanflow.src.frontend.pages
 		{
 			InitializeComponent();
 			LoadCitiesIntoComboBox();
+
+			runtest();
 		}
 
 		private async void AddCity_Click(object sender, RoutedEventArgs e)
@@ -38,7 +41,7 @@ namespace Urbanflow.src.frontend.pages
 
 					MessageBox.Show(
 					$"A(z) '{city}' város sikeresen feldolgozásra került");
-				}				
+				}
 			}
 		}
 		private void LoadCitiesIntoComboBox()
@@ -69,7 +72,7 @@ namespace Urbanflow.src.frontend.pages
 
 				// Keep the hint selected
 				HintItem.IsSelected = true;
-			}			
+			}
 		}
 
 
@@ -82,7 +85,7 @@ namespace Urbanflow.src.frontend.pages
 				return;
 			}
 
-			
+
 			if (CityComboBox.SelectedItem is ComboBoxItem selected && !selected.IsEnabled)
 			{
 				return;
@@ -113,6 +116,12 @@ namespace Urbanflow.src.frontend.pages
 					throw new InvalidOperationException("Selected city is null.");
 				}
 			}
+		}
+
+		private void runtest()
+		{
+			Main m = new Main();
+			m.RunGeneticAlgorithm();
 		}
 	}
 }

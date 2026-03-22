@@ -18,7 +18,8 @@ namespace Urbanflow.src.backend.services
 			List<Genome> BestGenomes = [];
 			List<(int, double)> FitnessValuesPerGenerations = [];
 
-			string[] steps = ["route", "time"];
+			//string[] steps = ["route", "time"];
+			string[] steps = ["route"];
 
 			var currentPopulation = new Population(1, 1); // first Population
 			var result = currentPopulation.PopulateByIntializingGenomes(OptimizationSettings, NetworkInformation);
@@ -61,7 +62,8 @@ namespace Urbanflow.src.backend.services
 			List<Genome> BestGenomes = [];
 			List<(int, double)> FitnessValuesPerGenerations = [];
 
-			string[] steps = ["route", "time"];
+			//string[] steps = ["route", "time"];
+			string[] steps = ["route"];
 
 			//create the first population
 			var currentPopulation = new Population(1, 1); 

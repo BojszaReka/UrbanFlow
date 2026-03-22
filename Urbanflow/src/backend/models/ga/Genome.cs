@@ -1,8 +1,10 @@
-﻿using System;
+﻿using GTFS.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
+using Urbanflow.src.backend.models.gtfs;
 using Urbanflow.src.backend.models.util;
 using yWorks.Layout.Graph;
 
@@ -203,8 +205,8 @@ namespace Urbanflow.src.backend.models.ga
 					//if (result.IsFailure) return result;
 					//fitnessValue += result.Value;
 
-					////Hard Constraint: Transfer count over allowed treshold
-					//result = CalculateHardConstraint_Route_Transfer(parameters, network);
+					////Hard Constraint: Redudancy of routes over allowed treshold
+					//result = CalculateHardConstraint_Route_Redundancy(parameters);
 					//if (result.IsFailure) return result;
 					//fitnessValue += result.Value;
 
@@ -213,15 +215,16 @@ namespace Urbanflow.src.backend.models.ga
 					if (result.IsFailure) return result;
 					fitnessValue += result.Value;
 
-					//Soft Constraint: Avarage travel time is optimal
-					result = CalculateSoftConstraint_Route_Traveltime(parameters, network);
+					//Hard Constraint: Transfer count over allowed treshold
+					result = CalculateHardConstraint_Route_Transfer(parameters, network);
 					if (result.IsFailure) return result;
 					fitnessValue += result.Value;
 
-					//Hard Constraint: Redudancy of routes over allowed treshold
-					result = CalculateHardConstraint_Route_Redundancy(parameters);
+					//Soft Constraint: Avarage travel time is optimal
+					result = CalculateSoftConstraint_Route_Traveltime(network);
 					if (result.IsFailure) return result;
 					fitnessValue += result.Value;
+					
 					break;
 				case "time":
 
@@ -268,13 +271,264 @@ namespace Urbanflow.src.backend.models.ga
 		private Result<double> CalculateHardConstraint_Route_Transfer(in OptimizationParameters parameters, in NetworkInformation network)
 		{
 			//Hard Constraint: Transfer count over allowed treshold
-			throw new NotImplementedException();
+			var routes = AllRoutes;
+
+			// Collect all unique stops per route (direction-independent)
+			var routeStops = new List<HashSet<Guid>>(routes.Count);
+			for (int i = 0; i < routes.Count; i++)
+			{
+				var stopSet = new HashSet<Guid>();
+
+				if (routes[i].OnRoute != null)
+				{
+					foreach (var stop in routes[i].OnRoute)
+						stopSet.Add(stop);
+				}
+
+				if (routes[i].BackRoute != null)
+				{
+					foreach (var stop in routes[i].BackRoute)
+						stopSet.Add(stop);
+				}
+
+				routeStops.Add(stopSet);
+			}
+
+			// Invert: stop -> list of route indices containing that stop
+			var stopToRoutes = new Dictionary<Guid, List<int>>();
+			for (int routeIndex = 0; routeIndex < routeStops.Count; routeIndex++)
+			{
+				foreach (var stop in routeStops[routeIndex])
+				{
+					if (!stopToRoutes.TryGetValue(stop, out var list))
+					{
+						list = new List<int>();
+						stopToRoutes[stop] = list;
+					}
+
+					list.Add(routeIndex);
+				}
+			}
+
+			// Build undirected route graph
+			var adjacency = new HashSet<int>[routes.Count];
+			for (int i = 0; i < adjacency.Length; i++)
+				adjacency[i] = new HashSet<int>();
+
+			foreach (var routeIndices in stopToRoutes.Values)
+			{
+				for (int i = 0; i < routeIndices.Count; i++)
+				{
+					for (int j = i + 1; j < routeIndices.Count; j++)
+					{
+						int a = routeIndices[i];
+						int b = routeIndices[j];
+
+						if (a == b)
+							continue;
+
+						adjacency[a].Add(b);
+						adjacency[b].Add(a);
+					}
+				}
+			}
+
+			// BFS from every route to compute graph diameter
+			// If disconnected, transfers are effectively over the limit.
+			var distance = new int[routes.Count];
+			var queue = new Queue<int>(routes.Count);
+
+			int maxShortestPathEdges = 0;
+			bool disconnected = false;
+
+			for (int start = 0; start < routes.Count; start++)
+			{
+				Array.Fill(distance, -1);
+				queue.Clear();
+
+				distance[start] = 0;
+				queue.Enqueue(start);
+
+				while (queue.Count > 0)
+				{
+					int current = queue.Dequeue();
+					int nextDistance = distance[current] + 1;
+
+					foreach (var neighbor in adjacency[current])
+					{
+						if (distance[neighbor] != -1)
+							continue;
+
+						distance[neighbor] = nextDistance;
+						queue.Enqueue(neighbor);
+					}
+				}
+
+				for (int i = 0; i < distance.Length; i++)
+				{
+					if (distance[i] == -1)
+					{
+						disconnected = true;
+						break;
+					}
+
+					if (distance[i] > maxShortestPathEdges)
+						maxShortestPathEdges = distance[i];
+				}
+
+				if (disconnected)
+					break;
+			}
+
+			// max transfers = diameter in edges
+			// Hard constraint: 100 if over allowed threshold, otherwise 0
+			double penalty = disconnected ||
+							 maxShortestPathEdges > parameters.Fitness_MaximalAllowedChangeParameter
+				? 100d
+				: 0d;
+
+			return Result<double>.Success(penalty);
 		}
 
-		private Result<double> CalculateSoftConstraint_Route_Traveltime(in OptimizationParameters parameters, in NetworkInformation network)
+		private Result<double> CalculateSoftConstraint_Route_Traveltime(in NetworkInformation network)
 		{
-			//Soft Constraint: Avarage travel time is optimal
-			throw new NotImplementedException();
+			var routes = AllRoutes;
+			double alpha = 0.5;
+			double beta = 0.5;
+
+			// ---- STOP -> DISTRICT ----
+			var stopToDistrict = new Dictionary<Guid, Guid>();
+
+			foreach (var (id, list) in network.Districts)
+			{
+				foreach (var stop in list)
+					stopToDistrict[stop] = id;
+			}
+
+			// ---- CONNECTIVITY FAST LOOKUP ----
+			var fastMatrix = new Dictionary<Guid, Dictionary<Guid, double>>(network.StopConnectivityMatrix.Count);
+
+			foreach (var (from, neighbors) in network.StopConnectivityMatrix)
+			{
+				var dict = new Dictionary<Guid, double>(neighbors.Count);
+				foreach (var (dest, weight) in neighbors)
+					dict[dest] = weight;
+
+				fastMatrix[from] = dict;
+			}
+
+			// ---- AGGREGATION ----
+			double intraSum = 0, interSum = 0;
+			int intraCount = 0, interCount = 0;
+
+			foreach (var route in routes)
+			{
+				List<Guid>[] onback = [route.OnRoute, route.BackRoute];
+
+				foreach (var r in onback)
+				{
+					// ---- DISTRICT FIRST/LAST ----
+					var firstIndex = new Dictionary<Guid, int>();
+					var lastIndex = new Dictionary<Guid, int>();
+
+					for (int i = 0; i < r.Count; i++)
+					{
+						var stop = r[i];
+
+						if (!stopToDistrict.TryGetValue(stop, out var d))
+							continue;
+
+						if (!firstIndex.ContainsKey(d))
+							firstIndex[d] = i;
+
+						lastIndex[d] = i;
+					}
+
+					// ---- INTRA ----
+					foreach (var d in firstIndex.Keys)
+					{
+						int start = firstIndex[d];
+						int end = lastIndex[d];
+
+						if (start >= end)
+							continue;
+
+						double time = 0;
+						bool valid = true;
+
+						for (int i = start; i < end; i++)
+						{
+							var from = r[i];
+							var to = r[i + 1];
+
+							if (!fastMatrix.TryGetValue(from, out var neigh) ||
+								!neigh.TryGetValue(to, out var w))
+							{
+								valid = false;
+								break;
+							}
+
+							time += w;
+						}
+
+						if (valid)
+						{
+							intraSum += time;
+							intraCount++;
+						}
+					}
+
+					// ---- INTER ----
+					var districtsOrdered = firstIndex
+						.Select(kvp => (District: kvp.Key, First: kvp.Value, Last: lastIndex[kvp.Key]))
+						.OrderBy(x => x.First)
+						.ToArray(); // faster than List
+
+					for (int i = 0; i < districtsOrdered.Length - 1; i++)
+					{
+						int start = districtsOrdered[i].Last;
+						int end = districtsOrdered[i + 1].First;
+
+						if (start >= end)
+							continue;
+
+						double time = 0;
+						bool valid = true;
+
+						for (int j = start; j < end; j++)
+						{
+							var from = r[j];
+							var to = r[j + 1];
+
+							if (!fastMatrix.TryGetValue(from, out var neigh) ||
+								!neigh.TryGetValue(to, out var w))
+							{
+								valid = false;
+								break;
+							}
+
+							time += w;
+						}
+
+						if (valid)
+						{
+							interSum += time;
+							interCount++;
+						}
+					}
+				}
+			}
+
+			// ---- FINAL ----
+			double T_intra = intraCount > 0 ? intraSum / intraCount : 0;
+			double T_inter = interCount > 0 ? interSum / interCount : 0;
+
+			double intraScore = (T_intra > 0) ? (1 - (T_intra / intraSum)) : 1;
+			double interScore = (T_inter > 0) ? (1 - (T_inter / interSum)) : 1;
+
+			double result = alpha * intraScore + beta * interScore;
+
+			return Result<double>.Success(Math.Clamp(result, 0, 1));
 		}
 
 		private Result<double> CalculateHardConstraint_Route_Redundancy(in OptimizationParameters parameters)
@@ -405,25 +659,29 @@ namespace Urbanflow.src.backend.models.ga
 			var districts = network.Districts;
 			var routes = AllRoutes;
 
-			for (int i = 0; i < districts.Count; i++)
+			List<Guid> checkedDistricts = [];
+			foreach (var (id1, d1) in districts)
 			{
-				var district1 = districts[i];
+				checkedDistricts.Add(id1);
 
-				for (int j = i + 1; j < districts.Count; j++)
+				foreach (var (id2, d2) in districts)
 				{
-					var district2 = districts[j];
+					if (checkedDistricts.Contains(id2))
+					{
+						continue;
+					}
 
 					foreach (var route in routes)
 					{
-						bool onRouteConnect =
-							route.OnRoute.Any(district1.Contains) &&
-							route.OnRoute.Any(district2.Contains);
+						bool on =
+							route.OnRoute.Any(d1.Contains) &&
+							route.OnRoute.Any(d2.Contains);
 
-						bool backRouteConnect =
-							route.BackRoute.Any(district1.Contains) &&
-							route.BackRoute.Any(district2.Contains);
+						bool back =
+							route.BackRoute.Any(d1.Contains) &&
+							route.BackRoute.Any(d2.Contains);
 
-						if (onRouteConnect || backRouteConnect)
+						if (on || back)
 							districtConnections++;
 					}
 				}
@@ -657,13 +915,17 @@ namespace Urbanflow.src.backend.models.ga
 			double districtConnections = 0;
 			var districts = network.Districts;
 
-			for (int i = 0; i < districts.Count; i++)
+			List<Guid> checkedDistricts = [];
+			foreach (var (id1, d1)  in districts)
 			{
-				var d1 = districts[i];
+				checkedDistricts.Add(id1);
 
-				for (int j = i + 1; j < districts.Count; j++)
+				foreach (var (id2, d2) in districts)
 				{
-					var d2 = districts[j];
+					if (checkedDistricts.Contains(id2))
+					{
+						continue;
+					}
 
 					foreach (var route in routes)
 					{

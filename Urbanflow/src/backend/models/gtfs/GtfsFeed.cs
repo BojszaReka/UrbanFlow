@@ -50,6 +50,8 @@ namespace Urbanflow.src.backend.models.gtfs
 			TryLoadingDistricts();
 		}
 
+		
+
 		public GtfsFeed(in GTFSFeed feed)
 		{
 			GTFS.Entities.FeedInfo feedInfo = feed.GetFeedInfo();
@@ -230,28 +232,12 @@ namespace Urbanflow.src.backend.models.gtfs
 		{
 			using var context = new DatabaseContext();
 			context.GtfsFeeds?.Add(this);
-			//context.Agencies?.AddRange(this.Agencies);
-			//context.Calendars?.AddRange(this.Calendars);
-			//context.CalendarDates?.AddRange(this.CalendarDates);
-			//context.Routes?.AddRange(this.Routes);
-			//context.Shapes?.AddRange(this.Shapes);
-			//context.Stops?.AddRange(this.Stops);
-			//context.StopTimes?.AddRange(this.StopTimes);
-			//context.Trips?.AddRange(this.Trips);
 			context.SaveChanges();
 		}
 
 		private void AddtoDatabase(in DatabaseContext context)
 		{
 			context.GtfsFeeds?.Add(this);
-			//context.Agencies?.AddRange(this.Agencies);
-			//context.Calendars?.AddRange(this.Calendars);
-			//context.CalendarDates?.AddRange(this.CalendarDates);
-			//context.Routes?.AddRange(this.Routes);
-			//context.Shapes?.AddRange(this.Shapes);
-			//context.Stops?.AddRange(this.Stops);
-			//context.StopTimes?.AddRange(this.StopTimes);
-			//context.Trips?.AddRange(this.Trips);
 			context.SaveChanges();
 		}
 		// ----------------------------
@@ -908,17 +894,17 @@ namespace Urbanflow.src.backend.models.gtfs
 			return true;
 		}
 
-		internal Result<List<List<Guid>>> CollectStopIdsGroupedByDistrict()
+		internal Result<Dictionary<Guid, List<Guid>>> CollectStopIdsGroupedByDistrict()
 		{
 			if (Districts == null || Districts.Count == 0) {
-				return Result<List<List<Guid>>>.Failure("No Ddistricts in the feed");
+				return Result<Dictionary<Guid, List<Guid>>>.Failure("No Ddistricts in the feed");
 			}
 			if (Districts.Count == 1 && Districts[0].IsCollectorDistrict)
 			{
-				return Result<List<List<Guid>>>.Failure("Can't collect districts, because there is no district beside collector district");
+				return Result<Dictionary<Guid, List<Guid>>>.Failure("Can't collect districts, because there is no district beside collector district");
 			}
 
-			List<List<Guid>> stopIdsGroupedByDistrict = [];
+			Dictionary<Guid, List<Guid>> stopIdsGroupedByDistrict = [];
 			foreach (var district in Districts)
 			{
 				HashSet<Guid> stopsOfDistrict = [];
@@ -929,9 +915,9 @@ namespace Urbanflow.src.backend.models.gtfs
 						stopsOfDistrict.Add(stop.Id);
 					}
 				}
-				stopIdsGroupedByDistrict.Add([.. stopsOfDistrict]);
+				stopIdsGroupedByDistrict[district.Id] = [.. stopsOfDistrict];
 			}
-			return Result<List<List<Guid>>>.Success(stopIdsGroupedByDistrict);
+			return Result<Dictionary<Guid, List<Guid>>>.Success(stopIdsGroupedByDistrict);
 		}
 
 		internal Result<List<Stop>> GatherStopsInCollectorDistricts()
@@ -953,16 +939,8 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public async void TryLoadingDistricts()
 		{
-			string sid = Id.ToString();
-			//no district or only collector district, the gtfs is for veszprem
-			if (Districts.Count <= 1 )
-			{
-				AddDistricts(VeszpremDistrict.DistrictNames);
-				AddStopsToDistricts(VeszpremDistrict.DistrictNames);
-
-				using var context = new DatabaseContext();
-				this.Stops = [.. context.Stops.Where(a => a.GtfsFeedId == Id)];
-			}
+			using var context = new DatabaseContext();
+			TryLoadingDistricts(context);
 		}
 
 		public void TryLoadingDistricts(in DatabaseContext context)
@@ -973,32 +951,6 @@ namespace Urbanflow.src.backend.models.gtfs
 				AddDistricts(VeszpremDistrict.DistrictNames, context);
 				AddStopsToDistricts(VeszpremDistrict.DistrictNames, context);
 				this.Stops = [.. context.Stops.Where(a => a.GtfsFeedId == Id)];
-			}
-		}
-
-		public async void AddDistricts(List<(string, List<string>)> districts)
-		{
-			using var db = new DatabaseContext();
-			var transaction = await db.Database.BeginTransactionAsync();
-			try
-			{
-				foreach(var (name, list) in districts)
-				{
-					var d = new District(name, Id, false, true);
-					Districts.Add(d);
-					db.Districts?.Add(d);
-				}
-				await db.SaveChangesAsync();
-				await transaction.CommitAsync();
-			}catch(Exception ex)
-			{				
-				await transaction.RollbackAsync();
-				await db.DisposeAsync();
-				throw new Exception(""+ex.InnerException);
-			}
-			finally{
-				await db.DisposeAsync();
-				await transaction.DisposeAsync();
 			}
 		}
 
@@ -1029,28 +981,19 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 		}
 
-		private async void AddStopsToDistricts(List<(string, List<string>)> districts)
+		private async void AddStopsToDistricts(List<(string, List<string>)> districts, DatabaseContext db)
 		{
-			using var db = new DatabaseContext();
 			var transaction = await db.Database.BeginTransactionAsync();
 			try
 			{
 				foreach (var (name, list) in districts)
 				{
-					var d = db.Districts.Where(d => d.Name.Equals(name)).First();
-					if(d == null)
-					{
-						throw new Exception($"District with {name} not found");
-					}
-					foreach(var stop in Stops)
+					var d = db.Districts.Where(d => d.Name.Equals(name)).First() ?? throw new Exception($"District with {name} not found");
+					foreach (var stop in Stops)
 					{
 						if (list.Contains(stop.StopId))
 						{
-							var s = db.Stops?.Where(s => s.StopId.Equals(stop.StopId)).First();
-							if(s == null)
-							{
-								throw new Exception($"Stop with stopid {stop.StopId} not found");
-							}
+							var s = (db.Stops?.Where(s => s.StopId.Equals(stop.StopId)).First()) ?? throw new Exception($"Stop with stopid {stop.StopId} not found");
 							s.DistrictId = d.Id;
 							db.Stops?.Update(s);
 						}
@@ -1072,30 +1015,31 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 		}
 
-		private async void AddStopsToDistricts(List<(string, List<string>)> districts, DatabaseContext db)
+		public void TryLoadingStopsTypes()
+		{
+			using var context = new DatabaseContext();
+			TryLoadingStopsTypes(context);
+		}
+
+		private void TryLoadingStopsTypes(DatabaseContext db)
+		{
+			AddNodeTypesToStops(VeszpremDistrict.specificStops, db);
+			this.Stops = [.. db.Stops.Where(a => a.GtfsFeedId == Id)];
+			db.DisposeAsync();
+		}
+
+		private async void AddNodeTypesToStops(List<(ENodeType, List<string>)> specificStops, DatabaseContext db)
 		{
 			var transaction = await db.Database.BeginTransactionAsync();
 			try
 			{
-				foreach (var (name, list) in districts)
+				foreach (var (type, stopids) in specificStops)
 				{
-					var d = db.Districts.Where(d => d.Name.Equals(name)).First();
-					if (d == null)
+					foreach (var stopid in stopids)
 					{
-						throw new Exception($"District with {name} not found");
-					}
-					foreach (var stop in Stops)
-					{
-						if (list.Contains(stop.StopId))
-						{
-							var s = db.Stops?.Where(s => s.StopId.Equals(stop.StopId)).First();
-							if (s == null)
-							{
-								throw new Exception($"Stop with stopid {stop.StopId} not found");
-							}
-							s.DistrictId = d.Id;
-							db.Stops?.Update(s);
-						}
+						var s = (db.Stops?.Where(s => s.StopId.Equals(stopid)).First()) ?? throw new Exception($"Stop with stopid {stopid} not found");
+						s.NodeType = type;
+						db.Stops.Update(s);
 					}
 				}
 				await db.SaveChangesAsync();
@@ -1109,7 +1053,6 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 			finally
 			{
-				await db.DisposeAsync();
 				await transaction.DisposeAsync();
 			}
 		}
