@@ -14,7 +14,7 @@ namespace Urbanflow.src.backend.models.ga
 		public int Headway { get; } // 5-60 közötti érték
 		public bool OneWay { get; }
 
-		public GenomeRoute(List<Guid> onRoute, int onStartTime, List<Guid> backRoute, int backStartTime, int headway, bool oneWay = false)
+		public GenomeRoute(in List<Guid> onRoute, int onStartTime, in List<Guid> backRoute, int backStartTime, int headway, bool oneWay = false)
 		{
 			OnRoute = onRoute;
 			OnStartTime = onStartTime;
@@ -24,7 +24,7 @@ namespace Urbanflow.src.backend.models.ga
 			OneWay = oneWay;
 		}
 
-		public GenomeRoute(List<Guid> onRoute, int onStartTime, int headway, bool oneWay = true)
+		public GenomeRoute(in List<Guid> onRoute, int onStartTime, int headway, bool oneWay = true)
 		{
 			OnRoute = onRoute;
 			OnStartTime = onStartTime;

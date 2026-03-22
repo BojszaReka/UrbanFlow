@@ -1,5 +1,6 @@
 ﻿using Urbanflow.src.backend.models;
 using Urbanflow.src.backend.models.ga;
+using Urbanflow.src.backend.models.util;
 using Urbanflow.src.backend.services;
 
 namespace Urbanflow.src.backend.test_automater
@@ -12,7 +13,7 @@ namespace Urbanflow.src.backend.test_automater
 		private readonly string WorkflowName = $"{DateTime.Now} Genetic Algorithm test";
 		private readonly string WorkflowDescription = "Automatically generated workflow by test_automater to test Genetic Algorithm";
 
-		private readonly OptimizationSettings settings = new OptimizationSettings
+		private readonly OptimizationSettings settings = new()
 		{
 			PopulationSize = 100,
 			IterationNumber = 100,
@@ -31,7 +32,8 @@ namespace Urbanflow.src.backend.test_automater
 		};
 
 		private Workflow workflow;
-		private GAStatistics statisticsCollector;
+		public List<(string, RunResults)> RunResults = [];
+
 
 		public void RunGeneticAlgorithm() {
 			SetupWorkFlow();
@@ -46,7 +48,9 @@ namespace Urbanflow.src.backend.test_automater
 				{
 					string descriptor = $"{i} iteration test run";
 					Console.WriteLine($"\n\n == Running: {descriptor}... == \n\n");
-					RunGA(descriptor);
+					var result = RunGA(descriptor);
+					if (result.IsFailure) throw new Exception($"Genetic algorith failed becasue: {result.Error}");
+					RunResults.Add((descriptor, result.Value));
 					TestIterations--;
 					Console.WriteLine($"\n\n == {descriptor} FINISHED! == \n\n");
 				}
@@ -71,7 +75,7 @@ namespace Urbanflow.src.backend.test_automater
 				var tempWorkflow = MenuManagerService.GetWorkflowByName(WorkflowName);
 				workflow = new Workflow(tempWorkflow.Id);
 				workflow.SetNetworkinformationFromInnerGtfsFeed();
-				workflow.CreateGAOptimizationService(settings, statisticsCollector);
+				workflow.CreateGAOptimizationService(settings);
 			}
 			catch (Exception e)
 			{
@@ -81,9 +85,9 @@ namespace Urbanflow.src.backend.test_automater
 			Console.WriteLine(" ===== Workflow setup done! ===== ");
 		}
 
-		private void RunGA(string descriptor)
+		private Result<RunResults> RunGA(string descriptor)
 		{
-			workflow.RunGA(descriptor);
+			return workflow.RunGA(descriptor);
 		}
 	}
 }

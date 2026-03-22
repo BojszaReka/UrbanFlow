@@ -85,7 +85,9 @@ namespace Urbanflow.Migrations
                     WorkflowId = table.Column<Guid>(type: "TEXT", nullable: false),
                     RouteId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", nullable: false),
-                    Type = table.Column<int>(type: "INTEGER", nullable: false)
+                    Type = table.Column<int>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    LastUpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -93,21 +95,20 @@ namespace Urbanflow.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "GtfsSources",
+                name: "GtfsFeeds",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    StringId = table.Column<string>(type: "TEXT", nullable: false),
-                    CityName = table.Column<string>(type: "TEXT", nullable: false),
-                    SourceUrl = table.Column<string>(type: "TEXT", nullable: false),
-                    GtfsName = table.Column<string>(type: "TEXT", nullable: false),
-                    ImportedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    Version = table.Column<string>(type: "TEXT", nullable: false),
-                    Description = table.Column<string>(type: "TEXT", nullable: false)
+                    PublisherName = table.Column<string>(type: "TEXT", nullable: false),
+                    PublisherUrl = table.Column<string>(type: "TEXT", nullable: false),
+                    Lang = table.Column<string>(type: "TEXT", nullable: false),
+                    StartDate = table.Column<string>(type: "TEXT", nullable: false),
+                    EndDate = table.Column<string>(type: "TEXT", nullable: false),
+                    Version = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_GtfsSources", x => x.Id);
+                    table.PrimaryKey("PK_GtfsFeeds", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -127,25 +128,25 @@ namespace Urbanflow.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "GtfsFeeds",
+                name: "Workflows",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    GtfsSourceId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    PublisherName = table.Column<string>(type: "TEXT", nullable: false),
-                    PublisherUrl = table.Column<string>(type: "TEXT", nullable: false),
-                    Lang = table.Column<string>(type: "TEXT", nullable: false),
-                    StartDate = table.Column<string>(type: "TEXT", nullable: false),
-                    EndDate = table.Column<string>(type: "TEXT", nullable: false),
-                    Version = table.Column<string>(type: "TEXT", nullable: false)
+                    GtfsFeedId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", nullable: false),
+                    CityId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Description = table.Column<string>(type: "TEXT", nullable: false),
+                    LastModified = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_GtfsFeeds", x => x.Id);
+                    table.PrimaryKey("PK_Workflows", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_GtfsFeeds_GtfsSources_GtfsSourceId",
-                        column: x => x.GtfsSourceId,
-                        principalTable: "GtfsSources",
+                        name: "FK_Workflows_Cities_CityId",
+                        column: x => x.CityId,
+                        principalTable: "Cities",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -226,11 +227,32 @@ namespace Urbanflow.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Districts",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", nullable: false),
+                    GtfsFeedId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    IsCollectorDistrict = table.Column<bool>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Districts", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Districts_GtfsFeeds_GtfsFeedId",
+                        column: x => x.GtfsFeedId,
+                        principalTable: "GtfsFeeds",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Routes",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     GtfsFeedId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    IsStatic = table.Column<bool>(type: "INTEGER", nullable: false),
                     RouteId = table.Column<string>(type: "TEXT", nullable: false),
                     AgencyId = table.Column<string>(type: "TEXT", nullable: false),
                     ShortName = table.Column<string>(type: "TEXT", nullable: false),
@@ -269,37 +291,6 @@ namespace Urbanflow.Migrations
                     table.PrimaryKey("PK_Shapes", x => x.Id);
                     table.ForeignKey(
                         name: "FK_Shapes_GtfsFeeds_GtfsFeedId",
-                        column: x => x.GtfsFeedId,
-                        principalTable: "GtfsFeeds",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Stops",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    GtfsFeedId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    NodeType = table.Column<int>(type: "INTEGER", nullable: false),
-                    StopId = table.Column<string>(type: "TEXT", nullable: false),
-                    Code = table.Column<string>(type: "TEXT", nullable: false),
-                    Name = table.Column<string>(type: "TEXT", nullable: false),
-                    Description = table.Column<string>(type: "TEXT", nullable: false),
-                    Latitude = table.Column<double>(type: "REAL", nullable: false),
-                    Longitude = table.Column<double>(type: "REAL", nullable: false),
-                    Zone = table.Column<string>(type: "TEXT", nullable: false),
-                    Url = table.Column<string>(type: "TEXT", nullable: false),
-                    LocationType = table.Column<int>(type: "INTEGER", nullable: true),
-                    ParentStation = table.Column<string>(type: "TEXT", nullable: false),
-                    Timezone = table.Column<string>(type: "TEXT", nullable: false),
-                    WheelchairBoarding = table.Column<string>(type: "TEXT", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Stops", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Stops_GtfsFeeds_GtfsFeedId",
                         column: x => x.GtfsFeedId,
                         principalTable: "GtfsFeeds",
                         principalColumn: "Id",
@@ -361,29 +352,37 @@ namespace Urbanflow.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Workflows",
+                name: "Stops",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     GtfsFeedId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    NodeType = table.Column<int>(type: "INTEGER", nullable: false),
+                    DistrictId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StopId = table.Column<string>(type: "TEXT", nullable: false),
+                    Code = table.Column<string>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", nullable: false),
-                    CityId = table.Column<Guid>(type: "TEXT", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
                     Description = table.Column<string>(type: "TEXT", nullable: false),
-                    LastModified = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false)
+                    Latitude = table.Column<double>(type: "REAL", nullable: false),
+                    Longitude = table.Column<double>(type: "REAL", nullable: false),
+                    Zone = table.Column<string>(type: "TEXT", nullable: false),
+                    Url = table.Column<string>(type: "TEXT", nullable: false),
+                    LocationType = table.Column<int>(type: "INTEGER", nullable: true),
+                    ParentStation = table.Column<string>(type: "TEXT", nullable: false),
+                    Timezone = table.Column<string>(type: "TEXT", nullable: false),
+                    WheelchairBoarding = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Workflows", x => x.Id);
+                    table.PrimaryKey("PK_Stops", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Workflows_Cities_CityId",
-                        column: x => x.CityId,
-                        principalTable: "Cities",
+                        name: "FK_Stops_Districts_DistrictId",
+                        column: x => x.DistrictId,
+                        principalTable: "Districts",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_Workflows_GtfsFeeds_GtfsFeedId",
+                        name: "FK_Stops_GtfsFeeds_GtfsFeedId",
                         column: x => x.GtfsFeedId,
                         principalTable: "GtfsFeeds",
                         principalColumn: "Id",
@@ -406,9 +405,9 @@ namespace Urbanflow.Migrations
                 column: "GtfsFeedId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_GtfsFeeds_GtfsSourceId",
-                table: "GtfsFeeds",
-                column: "GtfsSourceId");
+                name: "IX_Districts_GtfsFeedId",
+                table: "Districts",
+                column: "GtfsFeedId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Routes_GtfsFeedId",
@@ -419,6 +418,11 @@ namespace Urbanflow.Migrations
                 name: "IX_Shapes_GtfsFeedId",
                 table: "Shapes",
                 column: "GtfsFeedId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Stops_DistrictId",
+                table: "Stops",
+                column: "DistrictId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Stops_GtfsFeedId",
@@ -439,11 +443,6 @@ namespace Urbanflow.Migrations
                 name: "IX_Workflows_CityId",
                 table: "Workflows",
                 column: "CityId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Workflows_GtfsFeedId",
-                table: "Workflows",
-                column: "GtfsFeedId");
         }
 
         /// <inheritdoc />
@@ -495,13 +494,13 @@ namespace Urbanflow.Migrations
                 name: "Workflows");
 
             migrationBuilder.DropTable(
+                name: "Districts");
+
+            migrationBuilder.DropTable(
                 name: "Cities");
 
             migrationBuilder.DropTable(
                 name: "GtfsFeeds");
-
-            migrationBuilder.DropTable(
-                name: "GtfsSources");
         }
     }
 }

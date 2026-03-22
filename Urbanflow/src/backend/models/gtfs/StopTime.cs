@@ -30,7 +30,7 @@ namespace Urbanflow.src.backend.models.gtfs
 		// Contructors
 		public StopTime() { }
 
-		public StopTime(GTFS.Entities.StopTime st, Guid id)
+		public StopTime(in GTFS.Entities.StopTime st, Guid id)
 		{
 			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
@@ -44,8 +44,23 @@ namespace Urbanflow.src.backend.models.gtfs
 			PickupType = st.PickupType;
 			DropOffType = st.DropOffType;
 			ShapeDistTravelled = st.ShapeDistTravelled;
-			db.StopTimes.Add(this);
+			db.StopTimes?.Add(this);
 			db.SaveChanges();
+		}
+
+		public StopTime(in GTFS.Entities.StopTime st, Guid id, bool withoutDb = true)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			TripId = st.TripId;
+			ArrivalTime = st.ArrivalTime.Hours + ":" + st.ArrivalTime.Minutes + ":" + st.ArrivalTime.Seconds;
+			DepartureTime = st.DepartureTime.Hours + ":" + st.DepartureTime.Minutes + ":" + st.DepartureTime.Seconds;
+			StopId = st.StopId;
+			StopSequence = st.StopSequence;
+			StopHeadsign = st.StopHeadsign;
+			PickupType = st.PickupType;
+			DropOffType = st.DropOffType;
+			ShapeDistTravelled = st.ShapeDistTravelled;
 		}
 
 		public StopTime(Guid id)
@@ -63,6 +78,23 @@ namespace Urbanflow.src.backend.models.gtfs
 			PickupType = stopTime.PickupType;
 			DropOffType = stopTime.DropOffType;
 			ShapeDistTravelled = stopTime.ShapeDistTravelled;
+		}
+
+		public StopTime(in GTFS.Entities.StopTime st, Guid id, in DatabaseContext db)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			TripId = st.TripId;
+			ArrivalTime = st.ArrivalTime.Hours + ":" + st.ArrivalTime.Minutes + ":" + st.ArrivalTime.Seconds;
+			DepartureTime = st.DepartureTime.Hours + ":" + st.DepartureTime.Minutes + ":" + st.DepartureTime.Seconds;
+			StopId = st.StopId;
+			StopSequence = st.StopSequence;
+			StopHeadsign = st.StopHeadsign;
+			PickupType = st.PickupType;
+			DropOffType = st.DropOffType;
+			ShapeDistTravelled = st.ShapeDistTravelled;
+			db.StopTimes?.Add(this);
+			db.SaveChanges();
 		}
 
 

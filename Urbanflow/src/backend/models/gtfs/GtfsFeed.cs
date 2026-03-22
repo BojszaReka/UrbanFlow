@@ -36,6 +36,9 @@ namespace Urbanflow.src.backend.models.gtfs
 		public List<StopTime> StopTimes { get; internal set; } = [];
 		public List<Trip> Trips { get; internal set; } = [];
 
+		//other
+		public List<District> Districts { get; internal set; }
+
 
 		// Contructors
 
@@ -44,9 +47,10 @@ namespace Urbanflow.src.backend.models.gtfs
 		public GtfsFeed(Guid gtfsFeedId)
 		{
 			UpdateFromDatabase(gtfsFeedId);
+			TryLoadingDistricts();
 		}
 
-		public GtfsFeed(GTFSFeed feed)
+		public GtfsFeed(in GTFSFeed feed)
 		{
 			GTFS.Entities.FeedInfo feedInfo = feed.GetFeedInfo();
 			PublisherName = feedInfo.PublisherName ?? "Unknown";
@@ -57,14 +61,56 @@ namespace Urbanflow.src.backend.models.gtfs
 			Version = feedInfo.Version ?? "Unknown";
 			AddtoDatabase();
 
+			var District = new District("General City District (Collector)", Id, true);
+			Districts?.Add(District);
+
 			AdaptCollection(feed.Agencies, Agencies, Id, (a, id) => new Agency(a, id));
 			AdaptCollection(feed.Calendars, Calendars, Id, (c, id) => new Calendar(c, id));
 			AdaptCollection(feed.CalendarDates, CalendarDates, Id, (cd, id) => new CalendarDate(cd, id));
 			AdaptCollection(feed.Routes, Routes, Id, (r, id) => new Route(r, id));
 			AdaptCollection(feed.Shapes, Shapes, Id, (s, id) => new Shape(s, id));
-			AdaptCollection(feed.Stops, Stops, Id, (s, id) => new Stop(s, id));
+			AdaptCollection(feed.Stops, Stops, Id, (s, id) => new Stop(s, id, District.Id));
 			AdaptCollection(feed.StopTimes, StopTimes, Id, (st, id) => new StopTime(st, id));
-			AdaptCollection(feed.Trips, Trips, Id, (t, id) => new Trip(t, id));			
+			AdaptCollection(feed.Trips, Trips, Id, (t, id) => new Trip(t, id));
+
+			TryLoadingDistricts();
+		}
+
+		public GtfsFeed(in GTFSFeed feed, in DatabaseContext db)
+		{
+			GTFS.Entities.FeedInfo feedInfo = feed.GetFeedInfo();
+			PublisherName = feedInfo.PublisherName ?? "Unknown";
+			PublisherUrl = feedInfo.PublisherUrl ?? "Unknown";
+			Lang = feedInfo.Lang ?? "Unknown";
+			StartDate = feedInfo.StartDate ?? "Unknown";
+			EndDate = feedInfo.EndDate ?? "Unknown";
+			Version = feedInfo.Version ?? "Unknown";
+			AddtoDatabase(db);
+
+			var District = new District("General City District (Collector)", Id, db, true);
+			Districts?.Add(District);
+
+			AdaptCollection(feed.Agencies, Agencies, Id, (a, id) => new Agency(a, id, true));
+			AdaptCollection(feed.Calendars, Calendars, Id, (c, id) => new Calendar(c, id, true));
+			AdaptCollection(feed.CalendarDates, CalendarDates, Id, (cd, id) => new CalendarDate(cd, id, true));
+			AdaptCollection(feed.Routes, Routes, Id, (r, id) => new Route(r, id, true));
+			AdaptCollection(feed.Shapes, Shapes, Id, (s, id) => new Shape(s, id, true));
+			AdaptCollection(feed.Stops, Stops, Id, (s, id) => new Stop(s, id, District.Id, true));
+			AdaptCollection(feed.StopTimes, StopTimes, Id, (st, id) => new StopTime(st, id, true));
+			AdaptCollection(feed.Trips, Trips, Id, (t, id) => new Trip(t, id, true));
+
+			db.Agencies?.AddRange(Agencies);
+			db.Calendars?.AddRange(Calendars);
+			db.CalendarDates?.AddRange(CalendarDates);
+			db.Routes?.AddRange(Routes);
+			db.Shapes?.AddRange(Shapes);
+			db.Stops?.AddRange(Stops);
+			db.StopTimes?.AddRange(StopTimes);
+			db.Trips?.AddRange(Trips);
+
+			db.SaveChanges();
+
+			TryLoadingDistricts(db);
 		}
 
 		// ----------------------------
@@ -72,7 +118,7 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		// Generic method to for collections
 		private static void AdaptCollection<TSource, TTarget, TContext>(
-			IEnumerable<TSource> source,
+			in IEnumerable<TSource> source,
 			ICollection<TTarget> target,
 			TContext context,
 			Func<TSource, TContext, TTarget> factory)
@@ -83,9 +129,27 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 		}
 
+		private static void AdaptCollection<TSource, TTarget, TContext, TExtra>(
+			IEnumerable<TSource> source,
+			ICollection<TTarget> target,
+			TContext context,
+			TExtra extra,
+			Func<TSource, TContext, TExtra, TTarget> factory)
+		{
+			var results = source
+				.AsParallel()
+				.Select(item => factory(item, context, extra))
+				.ToList();
+
+			foreach (var result in results)
+			{
+				target.Add(result);
+			}
+		}
+
 		private static void ExportCollection<TSource, TTarget, TCollection>(
 			TCollection target,
-			IEnumerable<TSource> source,
+			in IEnumerable<TSource> source,
 			Func<TSource, TTarget> exporter)
 			where TCollection : class
 		{
@@ -103,6 +167,7 @@ namespace Urbanflow.src.backend.models.gtfs
 		{
 			using var context = new DatabaseContext();
 			var dbFeed = (context.GtfsFeeds?.Find(id)) ?? throw new Exception("GTFS Feed not found in database.");
+			Id = id;
 			this.PublisherName = dbFeed.PublisherName;
 			this.PublisherUrl = dbFeed.PublisherUrl;
 			this.Lang = dbFeed.Lang;
@@ -118,6 +183,8 @@ namespace Urbanflow.src.backend.models.gtfs
 			this.Stops = [.. context.Stops.Where(a => a.GtfsFeedId == id)];
 			this.StopTimes = [.. context.StopTimes.Where(a => a.GtfsFeedId == id)];
 			this.Trips = [.. context.Trips.Where(a => a.GtfsFeedId == id)];
+
+			this.Districts = [.. context.Districts.Where(a => a.GtfsFeedId == id)];
 			Console.WriteLine();
 		}
 
@@ -162,6 +229,20 @@ namespace Urbanflow.src.backend.models.gtfs
 		private void AddtoDatabase()
 		{
 			using var context = new DatabaseContext();
+			context.GtfsFeeds?.Add(this);
+			//context.Agencies?.AddRange(this.Agencies);
+			//context.Calendars?.AddRange(this.Calendars);
+			//context.CalendarDates?.AddRange(this.CalendarDates);
+			//context.Routes?.AddRange(this.Routes);
+			//context.Shapes?.AddRange(this.Shapes);
+			//context.Stops?.AddRange(this.Stops);
+			//context.StopTimes?.AddRange(this.StopTimes);
+			//context.Trips?.AddRange(this.Trips);
+			context.SaveChanges();
+		}
+
+		private void AddtoDatabase(in DatabaseContext context)
+		{
 			context.GtfsFeeds?.Add(this);
 			//context.Agencies?.AddRange(this.Agencies);
 			//context.Calendars?.AddRange(this.Calendars);
@@ -303,7 +384,6 @@ namespace Urbanflow.src.backend.models.gtfs
 			if (Routes == null || Routes.Count == 0)
 				return Result<List<EdgeDataDTO>>.Failure("No routes found.");
 
-			// Precompute lookups ONCE
 			var tripsByRoute = Trips
 				.GroupBy(t => t.RouteId)
 				.ToDictionary(g => g.Key, g => g.First());
@@ -347,7 +427,7 @@ namespace Urbanflow.src.backend.models.gtfs
 			if (allEdges.Count == 0)
 				return Result<List<EdgeDataDTO>>.Failure("No data found for the edges of the network");
 
-			HashSet<EdgeDataDTO> dataDTOs = new HashSet<EdgeDataDTO>();
+			HashSet<EdgeDataDTO> dataDTOs = [];
 			foreach (var (stop1id, stop2id, minutes) in allEdges)
 			{
 				dataDTOs.Add(new EdgeDataDTO
@@ -358,7 +438,7 @@ namespace Urbanflow.src.backend.models.gtfs
 				});
 			}
 
-			return Result<List<EdgeDataDTO>>.Success(dataDTOs.ToList());
+			return Result<List<EdgeDataDTO>>.Success([.. dataDTOs]);
 		}
 
 		public Result<List<NodeDataDTO>> GetStopsForNetworkGraph()
@@ -366,7 +446,6 @@ namespace Urbanflow.src.backend.models.gtfs
 			if (Routes == null || Routes.Count == 0)
 				return Result<List<NodeDataDTO>>.Failure("No routes found.");
 
-			// Precompute everything ONCE
 			var tripsByRoute = Trips
 				.GroupBy(t => t.RouteId)
 				.ToDictionary(g => g.Key, g => g.First());
@@ -392,14 +471,14 @@ namespace Urbanflow.src.backend.models.gtfs
 					if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
 						continue;
 
-					allStops.Add(GetParentStopOfStop(stop.Id)); 
+					allStops.Add(GetParentStopOfStop(stop.Id));
 				}
 			}
 
 			if (allStops.Count == 0)
 				return Result<List<NodeDataDTO>>.Failure("No data found for the nodes of the network");
 
-			List<NodeDataDTO> dataDTOs = new List<NodeDataDTO>();
+			List<NodeDataDTO> dataDTOs = [];
 			foreach (var stop in allStops) {
 				dataDTOs.Add(new NodeDataDTO
 				{
@@ -449,13 +528,13 @@ namespace Urbanflow.src.backend.models.gtfs
 					Stop = GetParentStopOfStop(stop.Id)
 				};
 
-				uniqueStops.Add(data); // HashSet handles duplicates
+				uniqueStops.Add(data);
 			}
 
 			if (uniqueStops.Count == 0)
 				return Result<List<NodeDataDTO>>.Failure($"No stops could be gathered for route (ID: {routeId})");
 
-			return Result<List<NodeDataDTO>>.Success(uniqueStops.ToList());
+			return Result<List<NodeDataDTO>>.Success([.. uniqueStops]);
 		}
 
 		public void SetNodeTypeForStops()
@@ -508,7 +587,7 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		internal string GetRouteName(Guid routeId)
 		{
-			var route = Routes.Where(r => r.Id== routeId).FirstOrDefault();
+			var route = Routes.Where(r => r.Id == routeId).FirstOrDefault();
 			return route.ShortName;
 		}
 
@@ -523,31 +602,516 @@ namespace Urbanflow.src.backend.models.gtfs
 			return stop;
 		}
 
-		internal Dictionary<Guid, List<(Guid Destination, double Weight)>> ExtractStopConnectivityMatrix()
+		internal Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>> ExtractStopConnectivityMatrix()
 		{
-			throw new NotImplementedException();
+			if (Routes == null || Routes.Count == 0)
+				return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure("No routes found.");
+
+			var tripsByRoute = Trips
+				.GroupBy(t => t.RouteId)
+				.ToDictionary(g => g.Key, g => g.First());
+
+			var stopTimesByTrip = StopTimes
+				.GroupBy(st => st.TripId)
+				.ToDictionary(g => g.Key, g => g.OrderBy(st => st.StopSequence).ToList());
+
+			var stopDict = Stops.ToDictionary(s => s.StopId);
+
+			var allEdges = new HashSet<(Guid, Guid, int)>();
+
+			foreach (var route in Routes)
+			{
+				if (!tripsByRoute.TryGetValue(route.RouteId, out var trip))
+					continue;
+
+				if (!stopTimesByTrip.TryGetValue(trip.TripId, out var stopTimes))
+					continue;
+
+				for (int i = 0; i < stopTimes.Count - 1; i++)
+				{
+					var fromStopTime = stopTimes[i];
+					var toStopTime = stopTimes[i + 1];
+
+					if (!stopDict.TryGetValue(fromStopTime.StopId, out var fromStop))
+						return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure($"Stop not found (ID: {fromStopTime.StopId}).");
+
+					if (!stopDict.TryGetValue(toStopTime.StopId, out var toStop))
+						return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure($"Stop not found (ID: {toStopTime.StopId}).");
+
+					var departureTime = TimeSpan.Parse(fromStopTime.DepartureTime);
+					var arrivalTime = TimeSpan.Parse(toStopTime.ArrivalTime);
+
+					int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
+
+					allEdges.Add((GetParentStopOfStop(fromStop.Id).Id, GetParentStopOfStop(toStop.Id).Id, travelTimeMinutes));
+				}
+			}
+
+			if (allEdges.Count == 0)
+				return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure("No data found for the edges of the network");
+
+			Dictionary<Guid, List<(Guid Destination, double Weight)>> connectivityMatrix = [];
+			foreach (var (stop1id, stop2id, minutes) in allEdges)
+			{
+				connectivityMatrix[stop1id].Add((stop2id, minutes));
+			}
+
+			return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Success(connectivityMatrix);
 		}
 
-		internal List<Guid> GatherAllStopIds()
+		internal Result<List<Guid>> GatherAllStopIds()
 		{
-			throw new NotImplementedException();
+			if (Routes == null || Routes.Count == 0)
+				return Result<List<Guid>>.Failure("No routes found.");
+
+			// Precompute everything ONCE
+			var tripsByRoute = Trips
+				.GroupBy(t => t.RouteId)
+				.ToDictionary(g => g.Key, g => g.First());
+
+			var stopTimesByTrip = StopTimes
+				.GroupBy(st => st.TripId)
+				.ToDictionary(g => g.Key, g => g.ToList());
+
+			var stopDict = Stops.ToDictionary(s => s.StopId);
+
+			var allStops = new HashSet<Stop>();
+
+			foreach (var route in Routes)
+			{
+				if (!tripsByRoute.TryGetValue(route.RouteId, out var trip))
+					continue;
+
+				if (!stopTimesByTrip.TryGetValue(trip.TripId, out var stopTimes))
+					continue;
+
+				foreach (var stopTime in stopTimes)
+				{
+					if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
+						continue;
+
+					allStops.Add(GetParentStopOfStop(stop.Id));
+				}
+			}
+
+			if (allStops.Count == 0)
+				return Result<List<Guid>>.Failure("No data found for the stops of the network");
+
+			List<Guid> stopIds = [];
+			foreach (var stop in allStops)
+			{
+				stopIds.Add(stop.Id);
+			}
+
+			return Result<List<Guid>>.Success(stopIds);
 		}
 
-		internal List<(Guid, ENodeType)> ExtractClassifiedStops()
+		internal Result<List<(Guid, ENodeType)>> ExtractClassifiedStops()
 		{
-			throw new NotImplementedException();
+			if (Routes == null || Routes.Count == 0)
+				return Result<List<(Guid, ENodeType)>>.Failure("No routes found.");
+
+			// Precompute everything ONCE
+			var tripsByRoute = Trips
+				.GroupBy(t => t.RouteId)
+				.ToDictionary(g => g.Key, g => g.First());
+
+			var stopTimesByTrip = StopTimes
+				.GroupBy(st => st.TripId)
+				.ToDictionary(g => g.Key, g => g.ToList());
+
+			var stopDict = Stops.ToDictionary(s => s.StopId);
+
+			var allStops = new HashSet<Stop>();
+
+			foreach (var route in Routes)
+			{
+				if (!tripsByRoute.TryGetValue(route.RouteId, out var trip))
+					continue;
+
+				if (!stopTimesByTrip.TryGetValue(trip.TripId, out var stopTimes))
+					continue;
+
+				foreach (var stopTime in stopTimes)
+				{
+					if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
+						continue;
+
+					allStops.Add(GetParentStopOfStop(stop.Id));
+				}
+			}
+
+			if (allStops.Count == 0)
+				return Result<List<(Guid, ENodeType)>>.Failure("No data found for the stops of the network");
+
+			List<(Guid, ENodeType)> classifiedStops = [];
+			foreach (var stop in allStops)
+			{
+				classifiedStops.Add((stop.Id, stop.NodeType));
+			}
+
+			return Result<List<(Guid, ENodeType)>>.Success(classifiedStops);
 		}
 
-		internal List<GenomeRoute> GatherStaticRoutes()
+		internal Result<List<GenomeRoute>> GatherStaticRoutes()
 		{
-			throw new NotImplementedException();
+			if (Routes == null || Routes.Count == 0)
+				return Result<List<GenomeRoute>>.Failure("No routes found in the feed");
+
+			var genomeRoutes = new List<GenomeRoute>();
+
+			var tripsByRoute = Trips
+				.GroupBy(t => t.RouteId)
+				.ToDictionary(g => g.Key, g => g.ToList());
+
+			var stopTimesByTrip = StopTimes
+				.Where(s => s.PickupType == GTFS.Entities.Enumerations.PickupType.Regular &&
+							s.DropOffType == GTFS.Entities.Enumerations.DropOffType.NoPickup)
+				.GroupBy(s => s.TripId)
+				.ToDictionary(g => g.Key, g => g.OrderBy(st => st.StopSequence).ToList());
+
+			var stopsById = Stops.ToDictionary(s => s.StopId);
+
+			foreach (var route in Routes)
+			{
+				if (!route.IsStatic)
+					continue;
+
+				if (!tripsByRoute.TryGetValue(route.RouteId, out var routeTrips))
+					return Result<List<GenomeRoute>>.Failure($"No trips for route ({route.ShortName}, {route.LongName}), route id: {route.Id}");
+
+				var onTrips = routeTrips
+					.Where(t => t.Direction == GTFS.Entities.Enumerations.DirectionType.OneDirection)
+					.ToList();
+
+				if (onTrips.Count == 0)
+					return Result<List<GenomeRoute>>.Failure($"No ON direction trips for route ({route.ShortName}, {route.LongName}), route id: {route.Id}");
+
+				var backTrips = routeTrips
+					.Where(t => t.Direction == GTFS.Entities.Enumerations.DirectionType.OppositeDirection)
+					.ToList();
+				bool oneWay = backTrips.Count == 0;
+
+				var onRoute = new List<Guid>();
+				var backRoute = new List<Guid>();
+
+				int onStartTime = -1;
+				int backStartTime = -1;
+				int headway = -1;
+
+				// ---------- ON ROUTE ----------
+				var onCounts = new Dictionary<int, int>();
+				int onSum = 0;
+
+				foreach (var trip in onTrips)
+				{
+					if (!stopTimesByTrip.TryGetValue(trip.TripId, out var tripStopTimes) || tripStopTimes.Count == 0)
+						return Result<List<GenomeRoute>>.Failure($"Couldn't get stopTimes for Trip ({trip.TripId}), route id: {route.Id}");
+
+					var first = tripStopTimes[0];
+
+					if (!TryParseMinute(first.DepartureTime, out int minute))
+						return Result<List<GenomeRoute>>.Failure($"Couldn't parse departure time for Trip ({trip.TripId}), route id: {route.Id}");
+
+					// Count frequency
+					if (!onCounts.TryAdd(minute, 1))
+						onCounts[minute]++;
+
+					onSum += minute;
+
+					// Build route
+					if (onRoute.Count == 0)
+					{
+						foreach (var st in tripStopTimes)
+						{
+							if (stopsById.TryGetValue(st.StopId, out var stop))
+								onRoute.Add(stop.Id);
+						}
+					}
+				}
+
+				if (onCounts.Count == 0)
+					return Result<List<GenomeRoute>>.Failure($"No valid stop times for route ({route.ShortName}, {route.LongName})");
+
+				onStartTime = onCounts.Keys.Min();
+				headway = onSum / onCounts.Count;
+
+				// ---------- BACK ROUTE ----------
+
+
+				if (!oneWay)
+				{
+					var backCounts = new Dictionary<int, int>();
+					int backSum = 0;
+
+					foreach (var trip in backTrips)
+					{
+						if (!stopTimesByTrip.TryGetValue(trip.TripId, out var tripStopTimes) || tripStopTimes.Count == 0)
+							return Result<List<GenomeRoute>>.Failure($"Couldn't get stopTimes for Trip ({trip.TripId}), route id: {route.Id}");
+
+						var first = tripStopTimes[0];
+
+						if (!TryParseMinute(first.DepartureTime, out int minute))
+							return Result<List<GenomeRoute>>.Failure($"Couldn't parse departure time for Trip ({trip.TripId}), route id: {route.Id}"); ;
+
+						if (!backCounts.TryAdd(minute, 1))
+							backCounts[minute]++;
+
+						backSum += minute;
+
+						if (backRoute.Count == 0)
+						{
+							foreach (var st in tripStopTimes)
+							{
+								if (stopsById.TryGetValue(st.StopId, out var stop))
+									backRoute.Add(stop.Id);
+							}
+						}
+					}
+
+					if (backCounts.Count > 0)
+					{
+						backStartTime = backCounts.Keys.Min();
+						int backHeadway = backSum / backCounts.Count;
+
+						if (headway != backHeadway)
+							headway = (headway + backHeadway) / 2;
+					}
+					else
+					{
+						oneWay = true;
+					}
+				}
+
+				// ---------- BUILD RESULT ----------
+				genomeRoutes.Add(
+					oneWay
+						? new GenomeRoute(onRoute, onStartTime, headway, true)
+						: new GenomeRoute(onRoute, onStartTime, backRoute, backStartTime, headway, false)
+				);
+			}
+
+			return Result<List<GenomeRoute>>.Success(genomeRoutes);
 		}
 
-		internal List<List<Guid>> CollectDistricts()
+		private static bool TryParseMinute(string time, out int minute)
 		{
-			throw new NotImplementedException();
+			minute = 0;
+
+			if (string.IsNullOrEmpty(time) || time.Length < 5)
+				return false;
+
+			if (!char.IsDigit(time[3]) || !char.IsDigit(time[4]))
+				return false;
+
+			minute = (time[3] - '0') * 10 + (time[4] - '0');
+			return true;
+		}
+
+		internal Result<List<List<Guid>>> CollectStopIdsGroupedByDistrict()
+		{
+			if (Districts == null || Districts.Count == 0) {
+				return Result<List<List<Guid>>>.Failure("No Ddistricts in the feed");
+			}
+			if (Districts.Count == 1 && Districts[0].IsCollectorDistrict)
+			{
+				return Result<List<List<Guid>>>.Failure("Can't collect districts, because there is no district beside collector district");
+			}
+
+			List<List<Guid>> stopIdsGroupedByDistrict = [];
+			foreach (var district in Districts)
+			{
+				HashSet<Guid> stopsOfDistrict = [];
+				foreach (var stop in Stops)
+				{
+					if (stop.DistrictId == district.Id)
+					{
+						stopsOfDistrict.Add(stop.Id);
+					}
+				}
+				stopIdsGroupedByDistrict.Add([.. stopsOfDistrict]);
+			}
+			return Result<List<List<Guid>>>.Success(stopIdsGroupedByDistrict);
+		}
+
+		internal Result<List<Stop>> GatherStopsInCollectorDistricts()
+		{
+			List<Stop> stopList = [];
+			foreach (var stop in Stops)
+			{
+				var district = Districts.Where(d => d.Id == stop.DistrictId).First();
+				if (district != null && district.IsCollectorDistrict)
+				{
+					stopList.Add(stop);
+				}
+			}
+
+			return Result<List<Stop>>.Success(stopList);
 		}
 
 		// ----------------------------
+
+		public async void TryLoadingDistricts()
+		{
+			string sid = Id.ToString();
+			//no district or only collector district, the gtfs is for veszprem
+			if (Districts.Count <= 1 )
+			{
+				AddDistricts(VeszpremDistrict.DistrictNames);
+				AddStopsToDistricts(VeszpremDistrict.DistrictNames);
+
+				using var context = new DatabaseContext();
+				this.Stops = [.. context.Stops.Where(a => a.GtfsFeedId == Id)];
+			}
+		}
+
+		public void TryLoadingDistricts(in DatabaseContext context)
+		{
+			//no district or only collector district, the gtfs is for veszprem
+			if (Districts.Count <= 1 )
+			{
+				AddDistricts(VeszpremDistrict.DistrictNames, context);
+				AddStopsToDistricts(VeszpremDistrict.DistrictNames, context);
+				this.Stops = [.. context.Stops.Where(a => a.GtfsFeedId == Id)];
+			}
+		}
+
+		public async void AddDistricts(List<(string, List<string>)> districts)
+		{
+			using var db = new DatabaseContext();
+			var transaction = await db.Database.BeginTransactionAsync();
+			try
+			{
+				foreach(var (name, list) in districts)
+				{
+					var d = new District(name, Id, false, true);
+					Districts.Add(d);
+					db.Districts?.Add(d);
+				}
+				await db.SaveChangesAsync();
+				await transaction.CommitAsync();
+			}catch(Exception ex)
+			{				
+				await transaction.RollbackAsync();
+				await db.DisposeAsync();
+				throw new Exception(""+ex.InnerException);
+			}
+			finally{
+				await db.DisposeAsync();
+				await transaction.DisposeAsync();
+			}
+		}
+
+		public async void AddDistricts(List<(string, List<string>)> districts, DatabaseContext db)
+		{
+			var transaction = await db.Database.BeginTransactionAsync();
+			try
+			{
+				foreach (var (name, list) in districts)
+				{
+					var d = new District(name, Id, false, true);
+					Districts.Add(d);
+					db.Districts?.Add(d);
+				}
+				await db.SaveChangesAsync();
+				await transaction.CommitAsync();
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await db.DisposeAsync();
+				throw new Exception("" + ex.InnerException);
+			}
+			finally
+			{
+				await db.DisposeAsync();
+				await transaction.DisposeAsync();
+			}
+		}
+
+		private async void AddStopsToDistricts(List<(string, List<string>)> districts)
+		{
+			using var db = new DatabaseContext();
+			var transaction = await db.Database.BeginTransactionAsync();
+			try
+			{
+				foreach (var (name, list) in districts)
+				{
+					var d = db.Districts.Where(d => d.Name.Equals(name)).First();
+					if(d == null)
+					{
+						throw new Exception($"District with {name} not found");
+					}
+					foreach(var stop in Stops)
+					{
+						if (list.Contains(stop.StopId))
+						{
+							var s = db.Stops?.Where(s => s.StopId.Equals(stop.StopId)).First();
+							if(s == null)
+							{
+								throw new Exception($"Stop with stopid {stop.StopId} not found");
+							}
+							s.DistrictId = d.Id;
+							db.Stops?.Update(s);
+						}
+					}
+				}
+				await db.SaveChangesAsync();
+				await transaction.CommitAsync();
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await db.DisposeAsync();
+				throw new Exception("" + ex.InnerException);
+			}
+			finally
+			{
+				await db.DisposeAsync();
+				await transaction.DisposeAsync();
+			}
+		}
+
+		private async void AddStopsToDistricts(List<(string, List<string>)> districts, DatabaseContext db)
+		{
+			var transaction = await db.Database.BeginTransactionAsync();
+			try
+			{
+				foreach (var (name, list) in districts)
+				{
+					var d = db.Districts.Where(d => d.Name.Equals(name)).First();
+					if (d == null)
+					{
+						throw new Exception($"District with {name} not found");
+					}
+					foreach (var stop in Stops)
+					{
+						if (list.Contains(stop.StopId))
+						{
+							var s = db.Stops?.Where(s => s.StopId.Equals(stop.StopId)).First();
+							if (s == null)
+							{
+								throw new Exception($"Stop with stopid {stop.StopId} not found");
+							}
+							s.DistrictId = d.Id;
+							db.Stops?.Update(s);
+						}
+					}
+				}
+				await db.SaveChangesAsync();
+				await transaction.CommitAsync();
+			}
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				await db.DisposeAsync();
+				throw new Exception("" + ex.InnerException);
+			}
+			finally
+			{
+				await db.DisposeAsync();
+				await transaction.DisposeAsync();
+			}
+		}
 	}
 }

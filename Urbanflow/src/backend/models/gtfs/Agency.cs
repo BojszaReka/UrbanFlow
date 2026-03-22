@@ -47,7 +47,7 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 		}
 
-		public Agency(GTFS.Entities.Agency a, Guid id)
+		public Agency(in GTFS.Entities.Agency a, Guid id)
 		{
 			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
@@ -59,7 +59,35 @@ namespace Urbanflow.src.backend.models.gtfs
 			LanguageCode = a.LanguageCode;
 			Phone = a.Phone;
 			FareURL = a.FareURL ?? "Unknown";
-			db.Agencies.Add(this);
+			db.Agencies?.Add(this);
+			db.SaveChanges();
+		}
+
+		public Agency(in GTFS.Entities.Agency a, Guid id, bool withoutDb = true)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			Agency_Id = a.Id;
+			Name = a.Name;
+			URL = a.URL;
+			Timezone = a.Timezone;
+			LanguageCode = a.LanguageCode;
+			Phone = a.Phone;
+			FareURL = a.FareURL ?? "Unknown";
+		}
+
+		public Agency(in GTFS.Entities.Agency a, Guid id, in DatabaseContext db)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			Agency_Id = a.Id;
+			Name = a.Name;
+			URL = a.URL;
+			Timezone = a.Timezone;
+			LanguageCode = a.LanguageCode;
+			Phone = a.Phone;
+			FareURL = a.FareURL ?? "Unknown";
+			db.Agencies?.Add(this);
 			db.SaveChanges();
 		}
 

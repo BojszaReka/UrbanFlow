@@ -23,10 +23,13 @@ namespace Urbanflow.src.backend.models.graph
 			
 		}
 
-		public Node(Stop s)
+		public Node(in Stop s)
 		{
 			using var db = new DatabaseContext();
-			var node = db.Nodes?.Where(n =>n.Name == Name && n.Type == Type && n.StopId == s.Id && n.Latitude == s.Latitude && n.Longitude == s.Longitude).FirstOrDefault();
+			Guid sid = s.Id;
+			double sLatitude = s.Latitude;
+			double sLongitude = s.Longitude;
+			var node = db.Nodes?.Where(n =>n.Name == Name && n.Type == Type && n.StopId == sid && n.Latitude == sLatitude && n.Longitude == sLongitude).FirstOrDefault();
 
 			Name = s.Name;
 			Type = s.NodeType;
@@ -62,7 +65,7 @@ namespace Urbanflow.src.backend.models.graph
 			}
 		}
 
-		public void UpdateFromStop(Stop s)
+		public void UpdateFromStop(in Stop s)
 		{
 			Name = s.Name;
 			Type = s.NodeType;

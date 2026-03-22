@@ -22,7 +22,7 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		// Constructors
 		public CalendarDate() { }
-		public CalendarDate(GTFS.Entities.CalendarDate cd, Guid id)
+		public CalendarDate(in GTFS.Entities.CalendarDate cd, Guid id)
 		{
 			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
@@ -30,8 +30,17 @@ namespace Urbanflow.src.backend.models.gtfs
 			ServiceId = cd.ServiceId;
 			Date = cd.Date;
 			ExceptionType = cd.ExceptionType;
-			db.CalendarDates.Add(this);
+			db.CalendarDates?.Add(this);
 			db.SaveChanges();
+		}
+
+		public CalendarDate(in GTFS.Entities.CalendarDate cd, Guid id, bool withoutDb = true)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			ServiceId = cd.ServiceId;
+			Date = cd.Date;
+			ExceptionType = cd.ExceptionType;
 		}
 
 		public CalendarDate(Guid id)
@@ -48,6 +57,17 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 			else
 				throw new ArgumentException("No CalendarDate with the given ID exists in the database.");
+		}
+
+		public CalendarDate(in GTFS.Entities.CalendarDate cd, Guid id, in DatabaseContext db)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			ServiceId = cd.ServiceId;
+			Date = cd.Date;
+			ExceptionType = cd.ExceptionType;
+			db.CalendarDates?.Add(this);
+			db.SaveChanges();
 		}
 
 		// GTFS methods

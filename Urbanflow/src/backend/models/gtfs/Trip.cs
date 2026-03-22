@@ -18,9 +18,9 @@ namespace Urbanflow.src.backend.models.gtfs
 		public string RouteId { get; set; }
 		public string ServiceId { get; set; }
 		public string Headsign { get; set; }
-		public string ShortName { get; set; }
+		public string? ShortName { get; set; }
 		public DirectionType? Direction { get; set; }
-		public string BlockId { get; set; }
+		public string? BlockId { get; set; }
 		public string ShapeId { get; set; }
 		public WheelchairAccessibilityType? AccessibilityType { get; set; }
 		[ForeignKey("GtfsFeedId")]
@@ -29,7 +29,7 @@ namespace Urbanflow.src.backend.models.gtfs
 		//Constructors
 		public Trip() { }
 
-		public Trip(GTFS.Entities.Trip trip, Guid id)
+		public Trip(in GTFS.Entities.Trip trip, Guid id)
 		{
 			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
@@ -44,8 +44,23 @@ namespace Urbanflow.src.backend.models.gtfs
 			ShapeId = trip.ShapeId;
 			AccessibilityType = trip.AccessibilityType;
 
-			db.Trips.Add(this);
+			db.Trips?.Add(this);
 			db.SaveChanges();
+		}
+
+		public Trip(in GTFS.Entities.Trip trip, Guid id, bool withoutdb = true)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			TripId = trip.Id;
+			RouteId = trip.RouteId;
+			ServiceId = trip.ServiceId;
+			Headsign = trip.Headsign;
+			ShortName = trip.ShortName;
+			Direction = trip.Direction;
+			BlockId = trip.BlockId;
+			ShapeId = trip.ShapeId;
+			AccessibilityType = trip.AccessibilityType;
 		}
 
 		public Trip(Guid id)
@@ -63,6 +78,24 @@ namespace Urbanflow.src.backend.models.gtfs
 			BlockId = t.BlockId;
 			ShapeId = t.ShapeId;
 			AccessibilityType = t.AccessibilityType;
+		}
+
+		public Trip(in GTFS.Entities.Trip trip, Guid id, in DatabaseContext db)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			TripId = trip.Id;
+			RouteId = trip.RouteId;
+			ServiceId = trip.ServiceId;
+			Headsign = trip.Headsign;
+			ShortName = trip.ShortName;
+			Direction = trip.Direction;
+			BlockId = trip.BlockId;
+			ShapeId = trip.ShapeId;
+			AccessibilityType = trip.AccessibilityType;
+
+			db.Trips?.Add(this);
+			db.SaveChanges();
 		}
 
 
@@ -91,7 +124,7 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public override int GetHashCode()
 		{
-			return ((((((((83 * 89 + AccessibilityType.GetHashCode()) * 89 + BlockId.GetHashCode()) * 89 + Direction.GetHashCode()) * 89 + Headsign.GetHashCode()) * 89 + TripId.GetHashCode()) * 89 + RouteId.GetHashCode()) * 89 + ServiceId.GetHashCode()) * 89 + ShapeId.GetHashCode()) * 89 + ShortName.GetHashCode();
+			return ((((((((83 * 89 + AccessibilityType.GetHashCode()) * 89 + BlockId.GetHashCode()) * 89 + Direction.GetHashCode()) * 89 + Headsign.GetHashCode()) * 89 + TripId.GetHashCode()) * 89 + RouteId.GetHashCode()) * 89 + ServiceId.GetHashCode()) * 89 + ShapeId.GetHashCode());
 		}
 
 		public override bool Equals(object? obj)

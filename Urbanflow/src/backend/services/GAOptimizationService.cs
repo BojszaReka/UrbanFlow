@@ -7,31 +7,18 @@ using Urbanflow.src.backend.test_automater;
 
 namespace Urbanflow.src.backend.services
 {
-	public class GAOptimizationService
+	public class GAOptimizationService(in NetworkInformation networkInformation, in OptimizationSettings optimizationSettings)
 	{
-		public NetworkInformation NetworkInformation {  get; }
-		public OptimizationSettings OptimizationSettings { get; }
-		public GAStatistics StatisticsCollector { get; }
+		public NetworkInformation NetworkInformation { get; } = networkInformation;
+		public OptimizationSettings OptimizationSettings { get; } = optimizationSettings;
 
-		public GAOptimizationService(in NetworkInformation networkInformation, in OptimizationSettings optimizationSettings)
+		public Result<RunResults> RunGeneticAlgorithmNewWaySelection(string Descriptor)
 		{
-			NetworkInformation = networkInformation;
-			OptimizationSettings = optimizationSettings;
-		}
+			//List<Population> Generations = [];
+			List<Genome> BestGenomes = [];
+			List<(int, double)> FitnessValuesPerGenerations = [];
 
-		public GAOptimizationService(in NetworkInformation networkInformation, in OptimizationSettings settings, in GAStatistics statisticsCollector)
-		{
-			NetworkInformation = networkInformation;
-			OptimizationSettings = settings;
-			StatisticsCollector = statisticsCollector;
-		}
-
-		public Result<RunResults> RunGeneticAlgorithm(string Descriptor)
-		{
-			List<Population> Generations = new List<Population>();
-			List<Genome> AllGeneratedGenomes = new List<Genome>();
-
-			string[] steps = { "route", "time" };
+			string[] steps = ["route", "time"];
 
 			var currentPopulation = new Population(1, 1); // first Population
 			var result = currentPopulation.PopulateByIntializingGenomes(OptimizationSettings, NetworkInformation);
@@ -39,32 +26,91 @@ namespace Urbanflow.src.backend.services
 			{
 				return Result<RunResults>.Failure(result.Error);
 			}
-			AllGeneratedGenomes.AddRange(result.Value);
-
-			int iteration = OptimizationSettings.IterationNumber;
+			FitnessValuesPerGenerations.AddRange(currentPopulation.GatherFitnessValues());
 
 			foreach (var step in steps) {
 				for (int i = 0; i < OptimizationSettings.IterationNumber; i++)
 				{
-					result = currentPopulation.PopulateByCreatingNewGenomes(OptimizationSettings, NetworkInformation, step);
+					result = currentPopulation.PopulateByCreatingNewGenomesNewWay(OptimizationSettings, NetworkInformation, step);
 					if (result.IsFailure)
 					{
 						return Result<RunResults>.Failure(result.Error);
 					}
-					AllGeneratedGenomes.AddRange(result.Value);
-					Generations.Add(currentPopulation);
+					BestGenomes.AddRange(result.Value);
+					//Generations.Add(currentPopulation);
+					FitnessValuesPerGenerations.AddRange(currentPopulation.GatherFitnessValues());
 
-					var newPopulation_result = currentPopulation.ExtractNextPopulation(OptimizationSettings);
+					var newPopulation_result = currentPopulation.ExtractNextPopulationNewWay(OptimizationSettings);
 					if (newPopulation_result.IsFailure)
 					{
 						return Result<RunResults>.Failure(newPopulation_result.Error);
 					}
 					currentPopulation = newPopulation_result.Value;
 				}
+				FitnessValuesPerGenerations.AddRange(currentPopulation.GatherFitnessValues());
 			}
-			Generations.Add(currentPopulation);
+			//Generations.Add(currentPopulation);
 
-			RunResults runResults = new RunResults(Generations, AllGeneratedGenomes, Descriptor);
+			RunResults runResults = new(BestGenomes, FitnessValuesPerGenerations, Descriptor);
+			return Result<RunResults>.Success(runResults);
+		}
+
+		public Result<RunResults> RunGeneticAlgorithmOldWaySelection(string Descriptor)
+		{
+			//List<Population> Generations = [];
+			List<Genome> BestGenomes = [];
+			List<(int, double)> FitnessValuesPerGenerations = [];
+
+			string[] steps = ["route", "time"];
+
+			//create the first population
+			var currentPopulation = new Population(1, 1); 
+			//fill the population with new genomes
+			var result = currentPopulation.PopulateByIntializingGenomes(OptimizationSettings, NetworkInformation);
+			if (result.IsFailure)
+			{
+				return Result<RunResults>.Failure(result.Error);
+			}
+			//gather fitness values of genomes
+			FitnessValuesPerGenerations.AddRange(currentPopulation.GatherFitnessValues());
+
+			//generate the new population with the best 10% of the previous
+			var newPopulation_result = currentPopulation.ExtractNextPopulationOldWay(OptimizationSettings);
+			if (newPopulation_result.IsFailure)
+			{
+				return Result<RunResults>.Failure(newPopulation_result.Error);
+			}
+			Population previousPopulation = currentPopulation;
+			currentPopulation = newPopulation_result.Value;
+
+			foreach (var step in steps)
+			{
+				for (int i = 0; i < OptimizationSettings.IterationNumber; i++)
+				{
+					//populate the rest of the population with the children of the previous population
+					result = currentPopulation.PopulateByCreatingNewGenomesOldWay(previousPopulation, OptimizationSettings, NetworkInformation, step);
+					if (result.IsFailure)
+					{
+						return Result<RunResults>.Failure(result.Error);
+					}
+					BestGenomes.AddRange(result.Value);
+					//Generations.Add(currentPopulation);
+					FitnessValuesPerGenerations.AddRange(currentPopulation.GatherFitnessValues());
+
+					//generate the new population with the best 10% of the previous
+					newPopulation_result = currentPopulation.ExtractNextPopulationOldWay(OptimizationSettings);
+					if (newPopulation_result.IsFailure)
+					{
+						return Result<RunResults>.Failure(newPopulation_result.Error);
+					}
+					previousPopulation = currentPopulation;
+					currentPopulation = newPopulation_result.Value;
+				}
+				FitnessValuesPerGenerations.AddRange(currentPopulation.GatherFitnessValues());
+			}
+			//Generations.Add(currentPopulation);
+
+			RunResults runResults = new(BestGenomes, FitnessValuesPerGenerations, Descriptor);
 			return Result<RunResults>.Success(runResults);
 		}
 	}

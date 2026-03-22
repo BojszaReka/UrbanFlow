@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
+using Urbanflow.src.backend.models;
 using Urbanflow.src.backend.services;
 using Urbanflow.src.frontend.dialogs;
 
@@ -16,7 +17,7 @@ namespace Urbanflow.src.frontend.pages
 			LoadCitiesIntoComboBox();
 		}
 
-		private void AddCity_Click(object sender, RoutedEventArgs e)
+		private async void AddCity_Click(object sender, RoutedEventArgs e)
 		{
 			AddCityDialog dialog = new();
 
@@ -26,9 +27,18 @@ namespace Urbanflow.src.frontend.pages
 				string folder = dialog.SelectedFolder;
 				string description = dialog.Description;
 
-				MenuManagerService.AddCity(city, description, folder);
+				var result = await MenuManagerService.AddCity(city, description, folder);
+				if (result.IsFailure)
+				{
+					MessageBox.Show($"A(z) '{city}' város feldolgozása sikertelen, hiba: {result.Error}");
+				}
+				else
+				{
+					LoadCitiesIntoComboBox();
 
-				LoadCitiesIntoComboBox();
+					MessageBox.Show(
+					$"A(z) '{city}' város sikeresen feldolgozásra került");
+				}				
 			}
 		}
 		private void LoadCitiesIntoComboBox()
@@ -40,18 +50,26 @@ namespace Urbanflow.src.frontend.pages
 					CityComboBox.Items.RemoveAt(i);
 			}
 
-			List<string> cities = MenuManagerService.GetCityNames();
-
-			foreach (string city in cities)
+			var result = MenuManagerService.GetCityNames();
+			if (result.IsFailure)
 			{
-				CityComboBox.Items.Add(new ComboBoxItem
-				{
-					Content = city
-				});
+				MessageBox.Show($"A városok betöltése sikertelen, hiba: {result.Error}");
 			}
+			else
+			{
+				List<string> cities = result.Value;
 
-			// Keep the hint selected
-			HintItem.IsSelected = true;
+				foreach (string city in cities)
+				{
+					CityComboBox.Items.Add(new ComboBoxItem
+					{
+						Content = city
+					});
+				}
+
+				// Keep the hint selected
+				HintItem.IsSelected = true;
+			}			
 		}
 
 

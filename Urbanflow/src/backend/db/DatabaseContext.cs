@@ -19,6 +19,8 @@ namespace Urbanflow.src.backend.db
 		public DbSet<GraphEdge>? GraphEdges { get; set; }
 		public DbSet<GraphNode>? GraphNodes { get; set; }
 
+		public DbSet<District>? Districts { get; set; }
+
 		public DbSet<Agency>? Agencies { get; set; }
 		public DbSet<Calendar>? Calendars { get; set; }
 		public DbSet<CalendarDate>? CalendarDates { get; set; }
@@ -35,7 +37,7 @@ namespace Urbanflow.src.backend.db
 			string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
 			string urbanflowDir = Path.Combine(appDataPath, "Urbanflow");
 			Directory.CreateDirectory(urbanflowDir);
-			string dbPath = Path.Combine(urbanflowDir, "UrbanFlowData.db");
+			string dbPath = Path.Combine(urbanflowDir, "UrbanFlowDB.db");
 			optionsBuilder.UseSqlite($"Data Source={dbPath}");
 
 		}
@@ -62,6 +64,8 @@ namespace Urbanflow.src.backend.db
 			modelBuilder.Entity<GraphEdge>().HasKey( x => new { x.GraphId, x.EdgeId });
 			modelBuilder.Entity<GraphNode>().HasKey(x => new { x.GraphId, x.NodeId });
 
+			modelBuilder.Entity<District>().HasKey(x => x.Id);
+
 
 			modelBuilder.Entity<City>().ToTable("Cities");
 			modelBuilder.Entity<Workflow>().ToTable("Workflows");
@@ -82,6 +86,8 @@ namespace Urbanflow.src.backend.db
 			modelBuilder.Entity<Edge>().ToTable("Edges");
 			modelBuilder.Entity<GraphEdge>().ToTable("GraphEdges");
 			modelBuilder.Entity<GraphNode>().ToTable("GraphNodes");
+
+			modelBuilder.Entity<District>().ToTable("Districts");
 
 		}
 	}

@@ -79,7 +79,7 @@ namespace Urbanflow.src.frontend.pages
 
 			if (dialog.ShowDialog() == true)
 			{
-				MenuManagerService.UpdateWorkflow(workflow, dialog.WorkflowName, dialog.WorkflowDescription);
+				MenuManagerService.UpdateWorkflow(workflow.Id, dialog.WorkflowName, dialog.WorkflowDescription);
 
 				LoadWorkflowTable();
 			}
@@ -106,7 +106,7 @@ namespace Urbanflow.src.frontend.pages
 			var workflowtemp = GetWorkflowFromSender(sender);
 			if (workflowtemp != null)
 			{
-				Workflow workflow = new Workflow(workflowtemp.Id);
+				Workflow workflow = new(workflowtemp.Id);
 
 				SidebarWindow w = new(workflow);
 				w.Show();

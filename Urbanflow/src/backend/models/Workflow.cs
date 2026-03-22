@@ -43,7 +43,6 @@ namespace Urbanflow.src.backend.models
 		[NotMapped]
 		private GAOptimizationService gaOptimizationService;
 
-
 		public Workflow() { }
 
 		public Workflow(string name, City city, string description, Guid feedid)
@@ -55,12 +54,7 @@ namespace Urbanflow.src.backend.models
 			GtfsFeedId = feedid;
 
 			using var db = new DatabaseContext();
-			var feed = db.GtfsFeeds?.Where(g => g.Id == GtfsFeedId).FirstOrDefault();
-			if (feed == null)
-			{
-				throw new Exception("The attached feed does not exists");
-			}
-			
+			var feed = (db.GtfsFeeds?.Where(g => g.Id == GtfsFeedId).FirstOrDefault()) ?? throw new Exception("The attached feed does not exists");
 			GtfsFeed = new GtfsFeed(GtfsFeedId);
 
 			gtfsManager = new GtfsManagerService();
@@ -75,11 +69,7 @@ namespace Urbanflow.src.backend.models
 			GtfsFeedId = feedid;
 
 			using var db = new DatabaseContext();
-			var feed = db.GtfsFeeds?.Where(g => g.Id == GtfsFeedId).FirstOrDefault();
-			if (feed == null)
-			{
-				throw new Exception("The attached feed does not exists");
-			}
+			var feed = (db.GtfsFeeds?.Where(g => g.Id == GtfsFeedId).FirstOrDefault()) ?? throw new Exception("The attached feed does not exists");
 			City = db.Cities?.Where(c => c.Id == CityId).FirstOrDefault() ?? throw new Exception("The atached city does not exists");
 			GtfsFeed = new GtfsFeed(GtfsFeedId);
 
@@ -196,23 +186,14 @@ namespace Urbanflow.src.backend.models
 			networkInformation = networkInfoResult.Value;
 		}
 
-		internal void CreateGAOptimizationService(in OptimizationSettings settings, GAStatistics statisticsCollector = null)
+		internal void CreateGAOptimizationService(in OptimizationSettings settings)
 		{
-			if(statisticsCollector != null)
-			{
-				gaOptimizationService = new GAOptimizationService(networkInformation, settings, statisticsCollector);
-			}
-			else
-			{
-				gaOptimizationService = new GAOptimizationService(networkInformation, settings);
-			}
-			
+			gaOptimizationService = new GAOptimizationService(networkInformation, settings);
 		}
 
 		internal Result<RunResults> RunGA(string descriptor)
 		{
-			var runResult = gaOptimizationService.RunGeneticAlgorithm(descriptor);
-			return runResult;
+			return gaOptimizationService.RunGeneticAlgorithmNewWaySelection(descriptor);
 		}
 	}
 }

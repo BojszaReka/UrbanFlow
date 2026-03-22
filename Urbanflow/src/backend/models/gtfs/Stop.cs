@@ -14,32 +14,38 @@ namespace Urbanflow.src.backend.models.gtfs
 		public Guid Id { get; internal set; }
 		public Guid GtfsFeedId { get; internal set; }
 		public ENodeType NodeType { get; internal set; } = ENodeType.Default;
+		public Guid DistrictId { get; internal set; }
 
 		//GTFS fields
 		public string StopId { get; internal set; }
 		public string Code { get; internal set; }
 		public string Name { get; internal set; }
-		public string Description { get; internal set; }
+		public string? Description { get; internal set; }
 		public double Latitude { get; internal set; }
 		public double Longitude { get; internal set; }
-		public string Zone { get; internal set; }
-		public string Url { get; internal set; }
+		public string? Zone { get; internal set; }
+		public string? Url { get; internal set; }
 		public LocationType? LocationType { get; internal set; }
-		public string ParentStation { get; internal set; }
-		public string Timezone { get; internal set; }
-		public string WheelchairBoarding { get; internal set; }
+		public string? ParentStation { get; internal set; }
+		public string? Timezone { get; internal set; }
+		public string? WheelchairBoarding { get; internal set; }
 		[ForeignKey("GtfsFeedId")]
 		public GtfsFeed GtfsFeed { get; internal set; }
+
+		[ForeignKey("DistrictId")]
+		public District District { get; set; }
 
 		//Constructors
 		public Stop() { }
 
-		public Stop(GTFS.Entities.Stop stop, Guid id)
+		public Stop(in GTFS.Entities.Stop stop, Guid id, Guid districtId)
 		{
 			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
 			GtfsFeedId = id;
 			NodeType = ENodeType.Default;
+
+			DistrictId = districtId;
 
 			StopId = stop.Id;
 			Code = stop.Code;
@@ -54,8 +60,30 @@ namespace Urbanflow.src.backend.models.gtfs
 			Timezone = stop.Timezone;
 			WheelchairBoarding = stop.WheelchairBoarding ?? "Unknown";
 
-			db.Stops.Add(this);
+			db.Stops?.Add(this);
 			db.SaveChanges();
+		}
+
+		public Stop(in GTFS.Entities.Stop stop, Guid id, Guid districtId, bool withoutdb = true)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			NodeType = ENodeType.Default;
+
+			DistrictId = districtId;
+
+			StopId = stop.Id;
+			Code = stop.Code;
+			Name = stop.Name;
+			Description = stop.Description;
+			Latitude = stop.Latitude;
+			Longitude = stop.Longitude;
+			Zone = stop.Zone;
+			Url = stop.Url;
+			LocationType = stop.LocationType;
+			ParentStation = stop.ParentStation;
+			Timezone = stop.Timezone;
+			WheelchairBoarding = stop.WheelchairBoarding ?? "Unknown";
 		}
 
 		public Stop(Guid id)
@@ -65,9 +93,17 @@ namespace Urbanflow.src.backend.models.gtfs
 			var stop = context.Stops?.Find(id);
 			if (stop is not null)
 			{
+				if(stop.ParentStation == null)
+				{
+					throw new Exception("The app does not supports gtfs which doesn't pair stops");
+				}
+
 				GtfsFeedId = stop.GtfsFeedId;
 				StopId = stop.StopId;
 				NodeType = stop.NodeType;
+
+				DistrictId = stop.DistrictId;
+
 				Code = stop.Code;
 				Name = stop.Name;
 				Description = stop.Description;
@@ -84,6 +120,31 @@ namespace Urbanflow.src.backend.models.gtfs
 			{
 				throw new InvalidOperationException($"Stop with id {id} not found.");
 			}
+		}
+
+		public Stop(in GTFS.Entities.Stop stop, Guid id, Guid districtId, in DatabaseContext db)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			NodeType = ENodeType.Default;
+
+			DistrictId = districtId;
+
+			StopId = stop.Id;
+			Code = stop.Code;
+			Name = stop.Name;
+			Description = stop.Description;
+			Latitude = stop.Latitude;
+			Longitude = stop.Longitude;
+			Zone = stop.Zone;
+			Url = stop.Url;
+			LocationType = stop.LocationType;
+			ParentStation = stop.ParentStation;
+			Timezone = stop.Timezone;
+			WheelchairBoarding = stop.WheelchairBoarding ?? "Unknown";
+
+			db.Stops?.Add(this);
+			db.SaveChanges();
 		}
 
 		// GTFS methods
@@ -114,7 +175,7 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public override int GetHashCode()
 		{
-			return (((((((((((41 * 43 + Code.GetHashCode()) * 43 + Description.GetHashCode()) * 43 + StopId.GetHashCode()) * 43 + Latitude.GetHashCode()) * 43 + LocationType.GetHashCode()) * 43 + Longitude.GetHashCode()) * 43 + Name.GetHashCode()) * 43 + ParentStation.GetHashCode()) * 43 + Timezone.GetHashCode()) * 43 + Url.GetHashCode()) * 43 + WheelchairBoarding.GetHashCode()) * 43 + Zone.GetHashCode();
+			return ((((((41 * 43 + Code.GetHashCode()) * 43 + StopId.GetHashCode()) * 43 + Latitude.GetHashCode()) * 43 + LocationType.GetHashCode()) * 43 + Longitude.GetHashCode()) * 43 + Name.GetHashCode());
 		}
 
 		public override bool Equals(object? obj)

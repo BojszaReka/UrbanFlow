@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Urbanflow.src.backend.db;
 
@@ -10,9 +11,11 @@ using Urbanflow.src.backend.db;
 namespace Urbanflow.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    partial class DatabaseContextModelSnapshot : ModelSnapshot
+    [Migration("20260321170839_AllowSomeNullable3")]
+    partial class AllowSomeNullable3
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -389,6 +392,7 @@ namespace Urbanflow.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Description")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("GtfsFeedId")
@@ -577,6 +581,7 @@ namespace Urbanflow.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("BlockId")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("Direction")
@@ -602,6 +607,7 @@ namespace Urbanflow.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ShortName")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("TripId")

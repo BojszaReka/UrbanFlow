@@ -104,26 +104,29 @@ namespace Urbanflow.src.backend.models.graph
 		public void SaveGraph()
 		{
 			using var db = new DatabaseContext();
-			var graph = db.Graphs.Where(g => g.Id == Id).FirstOrDefault();
+			var graph = db.Graphs?.Where(g => g.Id == Id).FirstOrDefault();
 			if (graph is null) {
-				db.Graphs.Add(this);
+				db.Graphs?.Add(this);
 			}
 			else
 			{
-				db.Graphs.Update(this);
+				db.Graphs?.Update(this);
 			}
 			db.SaveChanges();	
 		}
 
-		public void AddNode(Node node)
+		public void AddNode(in Node node)
 		{
 			if(node is null || node.Id == Guid.Empty)
 			{
 				throw new ArgumentException("Node cannot be null or have an empty Id.");
 			}
-			if(Nodes.Any(n => n.Id == node.Id))
+			foreach(var n in Nodes)
 			{
-				throw new InvalidOperationException("Node with the same Id already exists in the graph.");
+				if(n.Id == node.Id)
+				{
+					throw new InvalidOperationException("Node with the same Id already exists in the graph.");
+				}
 			}
 			Nodes.Add(node);
 			using var db = new DatabaseContext();
@@ -133,18 +136,19 @@ namespace Urbanflow.src.backend.models.graph
 			db.SaveChanges();
 		}
 
-		public void RemoveNode(Node node) {
+		public void RemoveNode(in Node node) {
 			if (node is null || node.Id == Guid.Empty)
 			{
 				throw new ArgumentException("Node cannot be null or have an empty Id.");
 			}
-			if (!Nodes.Any(n => n.Id == node.Id))
+			Guid nodeid = node.Id;
+			if (!Nodes.Any(n => n.Id == nodeid))
 			{
 				throw new InvalidOperationException("Node does not exist in the graph.");
 			}
-			Nodes.RemoveAll(n => n.Id == node.Id);
+			Nodes.RemoveAll(n => n.Id == nodeid);
 			using var db = new DatabaseContext();
-			var graphNodesToRemove = db.GraphNodes?.Where(gn => gn.GraphId == Id && gn.NodeId == node.Id).ToList();
+			var graphNodesToRemove = db.GraphNodes?.Where(gn => gn.GraphId == Id && gn.NodeId == nodeid).ToList();
 			if (graphNodesToRemove is not null)
 			{
 				db.GraphNodes?.RemoveRange(graphNodesToRemove);
@@ -154,13 +158,14 @@ namespace Urbanflow.src.backend.models.graph
 			}
 		}
 
-		public void AddEdge(Edge edge)
+		public void AddEdge(in Edge edge)
 		{
 			if (edge is null || edge.Id == Guid.Empty)
 			{
 				throw new ArgumentException("Edge cannot be null or have an empty Id.");
 			}
-			if (Edges.Any(e => e.Id == edge.Id))
+			Guid edgeId = edge.Id;
+			if (Edges.Any(e => e.Id == edgeId))
 			{
 				return;
 				throw new InvalidOperationException("Edge with the same Id already exists in the graph.");
@@ -173,19 +178,20 @@ namespace Urbanflow.src.backend.models.graph
 			db.SaveChanges();
 		}
 
-		public void RemoveEdge(Edge edge)
+		public void RemoveEdge(in Edge edge)
 		{
 			if (edge is null || edge.Id == Guid.Empty)
 			{
 				throw new ArgumentException("Edge cannot be null or have an empty Id.");
 			}
-			if (!Edges.Any(e => e.Id == edge.Id))
+			Guid edgeId = edge.Id;
+			if (!Edges.Any(e => e.Id == edgeId))
 			{
 				throw new InvalidOperationException("Edge does not exist in the graph.");
 			}
-			Edges.RemoveAll(e => e.Id == edge.Id);
+			Edges.RemoveAll(e => e.Id == edgeId);
 			using var db = new DatabaseContext();
-			var graphEdgesToRemove = db.GraphEdges?.Where(ge => ge.GraphId == Id && ge.EdgeId == edge.Id).ToList();
+			var graphEdgesToRemove = db.GraphEdges?.Where(ge => ge.GraphId == Id && ge.EdgeId == edgeId).ToList();
 			if (graphEdgesToRemove is not null)
 			{
 				db.GraphEdges?.RemoveRange(graphEdgesToRemove);

@@ -28,6 +28,14 @@ namespace Urbanflow.src.backend.services
 			return gtfsFeed.Id; //placeholder
 		}
 
+		internal static Guid UploadGtfsData(string gtfsPath, in DatabaseContext db)
+		{
+			GTFSFeed feed = ParseGtfsData(gtfsPath);
+			GtfsFeed gtfsFeed = new(feed, db);
+
+			return gtfsFeed.Id; //placeholder
+		}
+
 		private static GTFSFeed ParseGtfsData(string gtfsPath)
 		{
 			var reader = new GTFSReader<GTFSFeed>
@@ -79,31 +87,55 @@ namespace Urbanflow.src.backend.services
 				return Result<GraphDataDTO>.Failure(nodeResult.Error);
 			var routeNodeData = nodeResult.Value;
 
-			return new GraphDataDTO(routeEdgesData.ToList(), routeNodeData, name);
+			return new GraphDataDTO([.. routeEdgesData], routeNodeData, name);
 		}
 
 		public static Result<List<Guid>> GetRouteIds(in GtfsFeed feed)
 		{
 			List<Guid> routeIds = [.. feed.Routes.Select(r => r.Id)];
-			if(routeIds.Any())
+			if(routeIds.Count != 0)
 				return Result<List<Guid>>.Success(routeIds);
 			return Result<List<Guid>>.Failure("Couln't get route ids");
 		}
 
-		public Result<NetworkInformation> ExtractNetworkInformationForGA(GtfsFeed feed)
+		public Result<NetworkInformation> ExtractNetworkInformationForGA(in GtfsFeed feed)
 		{
-			NetworkInformation networkInformation = new NetworkInformation();
-			List<(Guid, ENodeType)> stopClassifications = feed.ExtractClassifiedStops();
-			//networkInformation.Terminals;
-			//networkInformation.Hubs;
-			//networkInformation.GenericStops;
-			networkInformation.AllStops = feed.GatherAllStopIds(); // turn return types into result format
-			networkInformation.StopConnectivityMatrix = feed.ExtractStopConnectivityMatrix();
-			networkInformation.StaticRoutes = feed.GatherStaticRoutes();
-			networkInformation.Districts = feed.CollectDistricts();
+			NetworkInformation networkInformation = new();
+
+			var classifiedResult = feed.ExtractClassifiedStops();
+			if (classifiedResult.IsFailure)
+			{
+				return Result<NetworkInformation>.Failure("Extracting classified stops failed: " + classifiedResult.Error);
+			}
+			networkInformation.Terminals = [.. classifiedResult.Value.Where(x => x.Item2 == ENodeType.Terminal).Select(x => x.Item1)];
+			networkInformation.Hubs = [.. classifiedResult.Value.Where(x => x.Item2 == ENodeType.Junction).Select(x => x.Item1)];
+			networkInformation.GenericStops = [.. classifiedResult.Value.Where(x => x.Item2 == ENodeType.Default).Select(x => x.Item1)];
+			networkInformation.AllStops = [.. classifiedResult.Value.Select(x => x.Item1)];
+
+			var matrixResult = feed.ExtractStopConnectivityMatrix();
+			if (matrixResult.IsFailure)
+			{
+				return Result<NetworkInformation>.Failure("Extracting connectivity matrix failed: " + matrixResult.Error);
+			}
+			networkInformation.StopConnectivityMatrix = matrixResult.Value;
+
+			var staticRouteResult = feed.GatherStaticRoutes();
+			if (staticRouteResult.IsFailure)
+			{
+				return Result<NetworkInformation>.Failure("Extracting static routes failed: " + staticRouteResult.Error);
+			}
+			networkInformation.StaticRoutes = staticRouteResult.Value;
+
+			var districtResult = feed.CollectStopIdsGroupedByDistrict();
+			if (districtResult.IsFailure)
+			{
+				return Result<NetworkInformation>.Failure("Extracting districts failed: "+districtResult.Error);
+			}
+			networkInformation.Districts = districtResult.Value;
+
 			return Result<NetworkInformation>.Success(networkInformation);
 		}
 
-
+		
 	}
 }

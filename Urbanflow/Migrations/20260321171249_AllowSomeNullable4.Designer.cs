@@ -11,8 +11,8 @@ using Urbanflow.src.backend.db;
 namespace Urbanflow.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20260319163920_0319_Changes")]
-    partial class _0319_Changes
+    [Migration("20260321171249_AllowSomeNullable4")]
+    partial class AllowSomeNullable4
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -309,6 +309,29 @@ namespace Urbanflow.Migrations
                     b.ToTable("CalendarDates", (string)null);
                 });
 
+            modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.District", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("GtfsFeedId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsCollectorDistrict")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GtfsFeedId");
+
+                    b.ToTable("Districts", (string)null);
+                });
+
             modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.FeedInfo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -375,6 +398,9 @@ namespace Urbanflow.Migrations
                     b.Property<Guid>("GtfsFeedId")
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("IsStatic")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("LongName")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -394,7 +420,6 @@ namespace Urbanflow.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Url")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -446,7 +471,9 @@ namespace Urbanflow.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Description")
-                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DistrictId")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("GtfsFeedId")
@@ -469,7 +496,6 @@ namespace Urbanflow.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("ParentStation")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("StopId")
@@ -477,22 +503,20 @@ namespace Urbanflow.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Timezone")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Url")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("WheelchairBoarding")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Zone")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DistrictId");
 
                     b.HasIndex("GtfsFeedId");
 
@@ -557,7 +581,6 @@ namespace Urbanflow.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("BlockId")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("Direction")
@@ -583,7 +606,6 @@ namespace Urbanflow.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ShortName")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("TripId")
@@ -641,6 +663,17 @@ namespace Urbanflow.Migrations
                     b.Navigation("GtfsFeed");
                 });
 
+            modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.District", b =>
+                {
+                    b.HasOne("Urbanflow.src.backend.models.gtfs.GtfsFeed", "GtfsFeed")
+                        .WithMany("Districts")
+                        .HasForeignKey("GtfsFeedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GtfsFeed");
+                });
+
             modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.Route", b =>
                 {
                     b.HasOne("Urbanflow.src.backend.models.gtfs.GtfsFeed", "GtfsFeed")
@@ -665,11 +698,19 @@ namespace Urbanflow.Migrations
 
             modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.Stop", b =>
                 {
+                    b.HasOne("Urbanflow.src.backend.models.gtfs.District", "District")
+                        .WithMany("Stops")
+                        .HasForeignKey("DistrictId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Urbanflow.src.backend.models.gtfs.GtfsFeed", "GtfsFeed")
                         .WithMany("Stops")
                         .HasForeignKey("GtfsFeedId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("District");
 
                     b.Navigation("GtfsFeed");
                 });
@@ -701,6 +742,11 @@ namespace Urbanflow.Migrations
                     b.Navigation("Workflows");
                 });
 
+            modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.District", b =>
+                {
+                    b.Navigation("Stops");
+                });
+
             modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.GtfsFeed", b =>
                 {
                     b.Navigation("Agencies");
@@ -708,6 +754,8 @@ namespace Urbanflow.Migrations
                     b.Navigation("CalendarDates");
 
                     b.Navigation("Calendars");
+
+                    b.Navigation("Districts");
 
                     b.Navigation("Routes");
 

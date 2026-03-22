@@ -12,7 +12,7 @@ namespace Urbanflow.src.backend.models.DTO
 
 		public GraphDataDTO() { }
 
-		public GraphDataDTO(List<EdgeDataDTO> edgesData, List<NodeDataDTO> nodeData, string graphName = "") { 
+		public GraphDataDTO(in List<EdgeDataDTO> edgesData, in List<NodeDataDTO> nodeData, string graphName = "") { 
 			EdgesData = edgesData;
 			NodeData = nodeData;
 			GraphName = graphName;

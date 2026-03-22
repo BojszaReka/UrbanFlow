@@ -61,7 +61,7 @@ namespace Urbanflow.src.backend.models.ga
 			return Result<List<Guid>>.Success(path);
 		}
 
-		public static Result<Genome> TournamentSelect(in List<Genome> pop, int k, Random rnd)
+		public static Result<Genome> TournamentSelect(in List<Genome> pop, int k, in Random rnd)
 		{
 			Genome? best = null;
 			for (int i = 0; i < k; i++)
@@ -133,7 +133,7 @@ namespace Urbanflow.src.backend.models.ga
 		}
 
 
-		public static Result<GenomeRoute> PerformCrossover(GenomeRoute route1, GenomeRoute route2, in NetworkInformation network, in OptimizationParameters parameters)
+		public static Result<GenomeRoute> PerformCrossover(in GenomeRoute route1, in GenomeRoute route2, in NetworkInformation network, in OptimizationParameters parameters)
 		{
 			var vStart1 = route1.OnRoute.First();
 			var vEnd1 = route1.OnRoute.Last();
@@ -221,7 +221,7 @@ namespace Urbanflow.src.backend.models.ga
 			return Result<GenomeRoute>.Success(Random.Shared.Next(2) == 0 ? route1 : route2); // Fallback
 		}
 
-		public static Result<GenomeRoute> PerformRouteMutation(GenomeRoute route, in NetworkInformation network, in OptimizationParameters parameters)
+		public static Result<GenomeRoute> PerformRouteMutation(in GenomeRoute route, in NetworkInformation network, in OptimizationParameters parameters)
 		{
 			var newTerminalList = network.Terminals;
 			newTerminalList.Remove(route.OnRoute[0]);
@@ -265,7 +265,7 @@ namespace Urbanflow.src.backend.models.ga
 			}
 		}
 
-		public static Result<List<Guid>?> GetBackRoute(List<Guid> onRoute, in NetworkInformation network, in OptimizationParameters parameters)
+		public static Result<List<Guid>?> GetBackRoute(in List<Guid> onRoute, in NetworkInformation network, in OptimizationParameters parameters)
 		{
 			var backRoute = new List<Guid>(onRoute);
 			backRoute.Reverse();

@@ -24,7 +24,7 @@ namespace Urbanflow.src.backend.models.gtfs
 		// Constructors
 		public Shape() { }
 
-		public Shape(GTFS.Entities.Shape s, Guid id)
+		public Shape(in GTFS.Entities.Shape s, Guid id)
 		{
 			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
@@ -34,8 +34,19 @@ namespace Urbanflow.src.backend.models.gtfs
 			Longitude = s.Longitude;
 			Sequence = s.Sequence;
 			DistanceTravelled = s.DistanceTravelled;
-			db.Shapes.Add(this);
+			db.Shapes?.Add(this);
 			db.SaveChanges();
+		}
+
+		public Shape(in GTFS.Entities.Shape s, Guid id, bool withoutdb = true)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			ShapeId = s.Id;
+			Latitude = s.Latitude;
+			Longitude = s.Longitude;
+			Sequence = s.Sequence;
+			DistanceTravelled = s.DistanceTravelled;
 		}
 
 		public Shape(Guid id)
@@ -56,6 +67,19 @@ namespace Urbanflow.src.backend.models.gtfs
 			{
 				throw new InvalidOperationException($"Shape with id {id} not found.");
 			}
+		}
+
+		public Shape(in GTFS.Entities.Shape s, Guid id, in DatabaseContext db)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			ShapeId = s.Id;
+			Latitude = s.Latitude;
+			Longitude = s.Longitude;
+			Sequence = s.Sequence;
+			DistanceTravelled = s.DistanceTravelled;
+			db.Shapes?.Add(this);
+			db.SaveChanges();
 		}
 
 

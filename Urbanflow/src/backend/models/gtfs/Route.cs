@@ -12,23 +12,26 @@ namespace Urbanflow.src.backend.models.gtfs
 		[Key]
 		public Guid Id { get; internal set; }
 		public Guid GtfsFeedId { get; internal set; }
+		public bool IsStatic { get; internal set; }
 
 		//GTFS fields
 		public string RouteId { get; internal set; }
 		public string AgencyId { get; internal set; }
 		public string ShortName { get; internal set; }
 		public string LongName { get; internal set; }
-		public string Description { get; internal set; }
+		public string? Description { get; internal set; }
 		public RouteTypeExtended Type { get; internal set; } = RouteTypeExtended.BusService;
-		public string Url { get; internal set; }
+		public string? Url { get; internal set; }
 		public int? Color { get; internal set; }
 		public int? TextColor { get; internal set; }
 		[ForeignKey("GtfsFeedId")]
 		public GtfsFeed GtfsFeed { get; internal set; }
 
+		
+
 		// Constructors
 		public Route() { }
-		public Route(GTFS.Entities.Route r, Guid id)
+		public Route(in GTFS.Entities.Route r, Guid id)
 		{
 			using var db = new DatabaseContext();
 			Id = Guid.NewGuid();
@@ -41,8 +44,22 @@ namespace Urbanflow.src.backend.models.gtfs
 			Url = r.Url;
 			Color = r.Color;
 			TextColor = r.TextColor;
-			db.Routes.Add(this);
+			db.Routes?.Add(this);
 			db.SaveChanges();
+		}
+
+		public Route(in GTFS.Entities.Route r, Guid id, bool withoutdb = true)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			RouteId = r.Id;
+			AgencyId = r.AgencyId;
+			ShortName = r.ShortName;
+			LongName = r.LongName;
+			Description = r.Description;
+			Url = r.Url;
+			Color = r.Color;
+			TextColor = r.TextColor;
 		}
 
 		public Route(Guid id)
@@ -67,6 +84,22 @@ namespace Urbanflow.src.backend.models.gtfs
 			{
 				throw new ArgumentException("Route with the specified ID does not exist.");
 			}
+		}
+
+		public Route(in GTFS.Entities.Route r, Guid id, in DatabaseContext db)
+		{
+			Id = Guid.NewGuid();
+			GtfsFeedId = id;
+			RouteId = r.Id;
+			AgencyId = r.AgencyId;
+			ShortName = r.ShortName;
+			LongName = r.LongName;
+			Description = r.Description;
+			Url = r.Url;
+			Color = r.Color;
+			TextColor = r.TextColor;
+			db.Routes?.Add(this);
+			db.SaveChanges();
 		}
 
 		// GTFS methods

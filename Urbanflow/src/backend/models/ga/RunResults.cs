@@ -4,17 +4,10 @@ using System.Text;
 
 namespace Urbanflow.src.backend.models.ga
 {
-	public class RunResults
+	public class RunResults(in List<Genome> genomes, in List<(int, double)> fitnessValuesPerGenerations, string descriptor)
 	{
-		public string RunDescriptor { get; set; }
-		public List<Population> Generations { get; set; }
-		public List<Genome> AllGeneratedGenomes { get; set; }
-
-		public RunResults(in List<Population> generations, in List<Genome> genomes, string descriptor)
-		{
-			Generations = generations;
-			AllGeneratedGenomes = genomes;
-			RunDescriptor = descriptor;
-		}
+		public string RunDescriptor { get; } = descriptor;
+		public List<Genome> BestGeneratedGenomes { get; } = genomes;
+		public List<(int, double)> FitnessValuesPerGenerations { get; } = fitnessValuesPerGenerations;
 	}
 }

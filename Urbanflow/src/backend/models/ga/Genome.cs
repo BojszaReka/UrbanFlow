@@ -56,7 +56,7 @@ namespace Urbanflow.src.backend.models.ga
 
 		
 		//Crossing
-		public Genome(int id, int generation, Genome parent1, Genome parent2, in OptimizationParameters parameters, in NetworkInformation network, string step)
+		public Genome(int id, int generation, in Genome parent1, in Genome parent2, in OptimizationParameters parameters, in NetworkInformation network, string step)
 		{
 			GenomeID = id;
 			GenerationID = generation;
@@ -102,7 +102,7 @@ namespace Urbanflow.src.backend.models.ga
 
 
 		//Mutation
-		public Genome(int id, int generation, Genome parent, in OptimizationParameters parameters, in NetworkInformation network , string step)
+		public Genome(int id, int generation, in Genome parent, in OptimizationParameters parameters, in NetworkInformation network , string step)
 		{
 			GenomeID = id;
 			GenerationID = generation;
@@ -247,25 +247,25 @@ namespace Urbanflow.src.backend.models.ga
 
 
 		//helper methods
-		private Result<double> CalculateHardConstraint_Time_Fleet(OptimizationParameters parameters, NetworkInformation network)
+		private Result<double> CalculateHardConstraint_Time_Fleet(in OptimizationParameters parameters, in NetworkInformation network)
 		{
 			//Hard Constraint: The busses needed to aperate at the same time are below fleet size
 			throw new NotImplementedException();
 		}
 
-		private Result<double> CalculateSoftConstraint_Time_TotalTravel(OptimizationParameters parameters, NetworkInformation network)
+		private Result<double> CalculateSoftConstraint_Time_TotalTravel(in OptimizationParameters parameters, in NetworkInformation network)
 		{
 			//Soft Constraint: Optimize the total time the travel takes, including waiting for changes
 			throw new NotImplementedException();
 		}
 
-		private Result<double> CalculateSoftConstraint_Time_Wait(OptimizationParameters parameters, NetworkInformation network)
+		private Result<double> CalculateSoftConstraint_Time_Wait(in OptimizationParameters parameters, in NetworkInformation network)
 		{
 			//Soft Constraint: Optimize the waiting time at changes
 			throw new NotImplementedException();
 		}
 
-		private Result<double> CalculateHardConstraint_Route_Transfer(OptimizationParameters parameters, NetworkInformation network)
+		private Result<double> CalculateHardConstraint_Route_Transfer(in OptimizationParameters parameters, in NetworkInformation network)
 		{
 			//Hard Constraint: Transfer count over allowed treshold
 			throw new NotImplementedException();

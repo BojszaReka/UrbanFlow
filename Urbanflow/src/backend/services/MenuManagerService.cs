@@ -2,6 +2,8 @@
 using Urbanflow.src.backend.db;
 using Urbanflow.src.backend.models;
 using Urbanflow.src.backend.models.gtfs;
+using Urbanflow.src.backend.models.util;
+using Urbanflow.src.frontend.pages;
 
 namespace Urbanflow.src.backend.services
 {
@@ -14,14 +16,20 @@ namespace Urbanflow.src.backend.services
 			return [.. db.Cities];
 		}
 
-		public static List<string> GetCityNames()
+		public static Result<List<string>> GetCityNames()
 		{
-			using var db = new DatabaseContext();
-			if (db.Cities == null)
+			try
 			{
-				return [];
-			}
-			return [.. db.Cities.Select(c => c.Name)];
+				using var db = new DatabaseContext();
+				if (db.Cities == null)
+				{
+					return Result<List<string>>.Success([]);
+				}
+				return Result<List<string>>.Success([.. db.Cities.Select(c => c.Name)]);
+			}catch(Exception ex)
+			{
+				return Result<List<string>>.Failure(ex.Message);
+			}			
 		}
 
 		public static City GetCityByName(string name)
@@ -36,36 +44,53 @@ namespace Urbanflow.src.backend.services
 			return db.Cities?.FirstOrDefault(c => c.Id == id);
 		}
 
-		public static Guid AddCity(string Name, string Description, string GtfsPath)
+		public static async Task<Result<Guid>> AddCity(string Name, string Description, string GtfsPath)
 		{
 			if (string.IsNullOrWhiteSpace(Name) || string.IsNullOrWhiteSpace(GtfsPath))
 			{
-				throw new Exception("City name and GTFS path cannot be empty.");
+				return Result<Guid>.Failure("City name and GTFS path cannot be empty.");
 			}
 
-			List<string> citynames = GetCityNames();
+			var result = GetCityNames();
+			if (result.IsFailure)
+			{
+				return Result<Guid>.Failure(result.Error);
+			}
+			List<string> citynames = result.Value;
 			if (citynames.Contains(Name))
 			{
-				throw new Exception("City with the same name already exists.");
+				return Result<Guid>.Failure("City with the same name already exists.");
 			}
 
-			Guid feedId = GtfsManagerService.UploadGtfsData(GtfsPath);
-
-			City city = new(Name, Description, feedId);
-
-			using (var db = new DatabaseContext())
+			using var db = new DatabaseContext();
+			var transaction = await db.Database.BeginTransactionAsync();
+			try
 			{
+				Guid feedId = GtfsManagerService.UploadGtfsData(GtfsPath, db);
+
+				City city = new(Name, Description, feedId);
 				db.Cities?.Add(city);
 				db.SaveChanges();
+				await transaction.CommitAsync();
+				return city.Id;
+				
 			}
-
-			return city.Id;
+			catch (Exception ex)
+			{
+				await transaction.RollbackAsync();
+				return Result<Guid>.Failure($"Adding new City failed: {ex.InnerException}");
+			}
+			finally
+			{
+				await transaction.DisposeAsync();
+			}
 		}
 
-		public static void UpdateCity(City city)
+		public static void UpdateCity(in City city)
 		{
 			using var db = new DatabaseContext();
-			var existingCity = db.Cities?.FirstOrDefault(c => c.Id == city.Id);
+			Guid cityId = city.Id;
+			var existingCity = db.Cities?.FirstOrDefault(c => c.Id == cityId);
 			if (existingCity != null)
 			{
 				existingCity.Name = city.Name;
@@ -149,10 +174,11 @@ namespace Urbanflow.src.backend.services
 			}
 		}
 
-		public static void UpdateWorkflow(Workflow workflow)
+		public static void UpdateWorkflow(in Workflow workflow)
 		{
 			using var db = new DatabaseContext();
-			var existingWorkflow = db.Workflows?.FirstOrDefault(w => w.Id == workflow.Id);
+			Guid workflowId = workflow.Id;
+			var existingWorkflow = db.Workflows?.FirstOrDefault(w => w.Id == workflowId);
 			if (existingWorkflow != null)
 			{
 				existingWorkflow.Name = workflow.Name;
@@ -167,13 +193,28 @@ namespace Urbanflow.src.backend.services
 			}
 		}
 
-		public static void AddNewWorkflow(string workflowName, string cityName, string workflowDescription)
+		public static async Task AddNewWorkflow(string workflowName, string cityName, string workflowDescription)
 		{
 			using var db = new DatabaseContext();
-			var existingCity = (db.Cities?.FirstOrDefault(c => c.Name == cityName)) ?? throw new Exception("City not found.");
-			var newWorkflow = new Workflow(workflowName, existingCity, workflowDescription, existingCity.GtfsFeedId);
-			db.Workflows?.Add(newWorkflow);
-			db.SaveChanges();
+			var transaction = await db.Database.BeginTransactionAsync();
+			try
+			{
+				var existingCity = (db.Cities?.FirstOrDefault(c => c.Name == cityName)) ?? throw new Exception("City not found.");
+				var newWorkflow = new Workflow(workflowName, existingCity, workflowDescription, existingCity.GtfsFeedId);
+				db.Workflows?.Add(newWorkflow);
+				db.SaveChanges();
+				await transaction.CommitAsync();
+			}
+			catch(Exception ex)
+			{
+				await transaction.RollbackAsync();
+				throw new Exception($"Adding new workflow failed: {ex.Message}");
+			}
+			finally
+			{
+				await transaction.DisposeAsync();
+			}
+			
 		}
 
 		public static List<Workflow>? GetWorkflowsByCityName(string cityName)
@@ -183,10 +224,10 @@ namespace Urbanflow.src.backend.services
 			return city == null ? throw new Exception("City not found.") : (db.Workflows?.Where(w => w.CityId == city.Id && w.IsActive).ToList());
 		}
 
-		public static void UpdateWorkflow(Workflow workflow, string workflowName, string workflowDescription)
+		public static void UpdateWorkflow(Guid workflowId, string workflowName, string workflowDescription)
 		{
 			using var db = new DatabaseContext();
-			var existingWorkflow = db.Workflows?.FirstOrDefault(w => w.Id == workflow.Id);
+			var existingWorkflow = db.Workflows?.FirstOrDefault(w => w.Id == workflowId);
 			if (existingWorkflow != null)
 			{
 				existingWorkflow.Name = workflowName;

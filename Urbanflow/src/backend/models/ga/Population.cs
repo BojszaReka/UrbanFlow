@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Text;
 using Urbanflow.src.backend.models.util;
 
@@ -20,14 +21,14 @@ namespace Urbanflow.src.backend.models.ga
 			GenomeCounter = genomeCounter;
 		}
 
-		public Population(int generationId, int genomeCounter, Genome[] genomes)
+		public Population(int generationId, int genomeCounter, in Genome[] genomes)
 		{
 			GenerationID = generationId;
 			GenomeCounter = genomeCounter;
 			Genomes.AddRange(genomes);
 		}
 
-		public Result<List<Genome>> PopulateByIntializingGenomes(in OptimizationSettings settings, in NetworkInformation network)
+		public Result<Genome> PopulateByIntializingGenomes(in OptimizationSettings settings, in NetworkInformation network)
 		{
 			List<Genome> newGenomes = [];
 			for (int i = 0; i < settings.PopulationSize; i++)
@@ -36,14 +37,14 @@ namespace Urbanflow.src.backend.models.ga
 				Genomes.Add(g);
 				newGenomes.Add(g);
 			}
-			return Result<List<Genome>>.Success(newGenomes);
+			return Result<Genome>.Success(newGenomes.OrderBy(g => g.FitnessValue).First());
 		}
 
-		public Result<List<Genome>> PopulateByCreatingNewGenomes(in OptimizationSettings settings, in NetworkInformation network, string step = "")
+		public Result<Genome> PopulateByCreatingNewGenomesNewWay(in OptimizationSettings settings, in NetworkInformation network, string step = "")
 		{			
 			if (Genomes == null || Genomes.Count == 0)
 			{
-				return Result<List<Genome>>.Failure($"Current population empty, can't create new genomes. (GenerationID: {GenerationID})");
+				return Result<Genome>.Failure($"Current population empty, can't create new genomes. (GenerationID: {GenerationID})");
 			}
 
 			string[] birthmodes = ["crossing", "mutation"];
@@ -59,7 +60,7 @@ namespace Urbanflow.src.backend.models.ga
 				var tournamentResult = GAUtil.TournamentSelect(sortedGenomes, 3, random);
 				if (tournamentResult.IsFailure)
 				{
-					return Result<List<Genome>>.Failure($"Process of populating when creating new genomes failed at crossing when tried TournamentSelect for parent_1, iteration: {i}, error: {tournamentResult.Error}");
+					return Result<Genome>.Failure($"Process of populating when creating new genomes failed at crossing when tried TournamentSelect for parent_1, iteration: {i}, error: {tournamentResult.Error}");
 				}
 
 				switch (birthMode)
@@ -69,7 +70,7 @@ namespace Urbanflow.src.backend.models.ga
 						tournamentResult = GAUtil.TournamentSelect(sortedGenomes, 3, random);
 						if (tournamentResult.IsFailure)
 						{
-							return Result<List<Genome>>.Failure($"Process of populating when creating new genomes failed at crossing when tried TournamentSelect for parent_2, iteration: {i}, error: {tournamentResult.Error}");
+							return Result<Genome>.Failure($"Process of populating when creating new genomes failed at crossing when tried TournamentSelect for parent_2, iteration: {i}, error: {tournamentResult.Error}");
 						}
 						Genome parent_2 = tournamentResult.Value;
 						g = new Genome(GenomeCounter++, GenerationID + 1, parent_1, parent_2, settings.UserOptimizationParameters, network, step);
@@ -86,10 +87,10 @@ namespace Urbanflow.src.backend.models.ga
 				newGenomes.Add(g);
 			}
 
-			return Result<List<Genome>>.Success(newGenomes);
+			return Result<Genome>.Success(newGenomes.OrderBy(g => g.FitnessValue).First());
 		}
 
-		public Result<Population> ExtractNextPopulation(in OptimizationSettings settings)
+		public Result<Population> ExtractNextPopulationNewWay(in OptimizationSettings settings)
 		{
 			if (Genomes == null || Genomes.Count == 0)
 			{
@@ -100,6 +101,78 @@ namespace Urbanflow.src.backend.models.ga
 			Population nextPopulation = new(GenerationID + 1, GenomeCounter, newPopulationGenomes);
 			return Result<Population>.Success(nextPopulation);
 		}
-		
+
+		internal Result<Genome> PopulateByCreatingNewGenomesOldWay(in Population previousPopulation, in OptimizationSettings settings, in NetworkInformation network, string step)
+		{
+			var GenomeList = previousPopulation.Genomes;
+			if (GenomeList == null || GenomeList.Count == 0)
+			{
+				return Result<Genome>.Failure($"Current population empty, can't create new genomes. (GenerationID: {GenerationID})");
+			}
+
+			string[] birthmodes = ["crossing", "mutation"];
+			List<Genome> newGenomes = [];
+			var sortedGenomes = GenomeList.OrderBy(g => g.FitnessValue).ToList();
+			var random = new Random();
+
+			for (int i = Genomes.Count; i <= settings.PopulationSize; i++)
+			{
+				string birthMode = birthmodes[random.Next(0, 1)];
+				Genome g;
+
+				var tournamentResult = GAUtil.TournamentSelect(sortedGenomes, 3, random);
+				if (tournamentResult.IsFailure)
+				{
+					return Result<Genome>.Failure($"Process of populating when creating new genomes failed at crossing when tried TournamentSelect for parent_1, iteration: {i}, error: {tournamentResult.Error}");
+				}
+
+				switch (birthMode)
+				{
+					case "crossing":
+						Genome parent_1 = tournamentResult.Value;
+						tournamentResult = GAUtil.TournamentSelect(sortedGenomes, 3, random);
+						if (tournamentResult.IsFailure)
+						{
+							return Result<Genome>.Failure($"Process of populating when creating new genomes failed at crossing when tried TournamentSelect for parent_2, iteration: {i}, error: {tournamentResult.Error}");
+						}
+						Genome parent_2 = tournamentResult.Value;
+						g = new Genome(GenomeCounter++, GenerationID + 1, parent_1, parent_2, settings.UserOptimizationParameters, network, step);
+						break;
+					case "mutation":
+						Genome parent = tournamentResult.Value;
+						g = new Genome(GenomeCounter++, GenerationID + 1, parent, settings.UserOptimizationParameters, network, step);
+						break;
+					default:
+						g = new Genome(GenomeCounter++, GenerationID + 1, settings.UserOptimizationParameters, network);
+						break;
+				}
+				Genomes.Add(g);
+				newGenomes.Add(g);
+			}
+
+			return Result<Genome>.Success(newGenomes.OrderBy(g => g.FitnessValue).First());
+		}
+
+		internal Result<Population> ExtractNextPopulationOldWay(in OptimizationSettings settings)
+		{
+			if (Genomes == null || Genomes.Count == 0)
+			{
+				return Result<Population>.Failure($"Current population empty, can't extract next population (GenerationID: {GenerationID})");
+			}
+			IEnumerable<Genome[]> populationSplit = Genomes.OrderBy(g => g.FitnessValue).Chunk(settings.PopulationSize / 10);
+			var newPopulationGenomes = populationSplit.First();
+			Population nextPopulation = new(GenerationID + 1, GenomeCounter, newPopulationGenomes);
+			return Result<Population>.Success(nextPopulation);
+		}
+
+		public List<(int, double)> GatherFitnessValues()
+		{
+			List<(int, double)> fitnessValueList = [];
+			foreach (Genome genome in Genomes)
+			{
+				fitnessValueList.Add((GenerationID, genome.FitnessValue));
+			}
+			return fitnessValueList;
+		}
 	}
 }

@@ -119,7 +119,7 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 		}
 
-		public Calendar(GTFS.Entities.Calendar c, Guid id)
+		public Calendar(in GTFS.Entities.Calendar c, Guid id)
 		{
 			using var db = new DatabaseContext();
 			GtfsFeedId = id;
@@ -128,7 +128,29 @@ namespace Urbanflow.src.backend.models.gtfs
 			Mask = c.Mask;
 			StartDate = c.StartDate;
 			EndDate = c.EndDate;
-			db.Calendars.Add(this);
+			db.Calendars?.Add(this);
+			db.SaveChanges();
+		}
+
+		public Calendar(in GTFS.Entities.Calendar c, Guid id, bool withoutdb = true)
+		{
+			GtfsFeedId = id;
+			Id = Guid.NewGuid();
+			ServiceId = c.ServiceId;
+			Mask = c.Mask;
+			StartDate = c.StartDate;
+			EndDate = c.EndDate;
+		}
+
+		public Calendar(in GTFS.Entities.Calendar c, Guid id, in DatabaseContext db)
+		{
+			GtfsFeedId = id;
+			Id = Guid.NewGuid();
+			ServiceId = c.ServiceId;
+			Mask = c.Mask;
+			StartDate = c.StartDate;
+			EndDate = c.EndDate;
+			db.Calendars?.Add(this);
 			db.SaveChanges();
 		}
 
