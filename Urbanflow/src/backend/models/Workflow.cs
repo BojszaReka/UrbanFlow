@@ -187,14 +187,27 @@ namespace Urbanflow.src.backend.models
 			networkInformation = networkInfoResult.Value;
 		}
 
-		internal void CreateGAOptimizationService(in OptimizationSettings settings)
+		internal void CreateGAOptimizationService( in OptimizationSettings settings)
 		{
 			gaOptimizationService = new GAOptimizationService(networkInformation, settings);
 		}
 
-		internal Result<RunResults> RunGA(string descriptor)
+		internal Result<List<RunResults>> RunGA(string descriptor)
 		{
-			return gaOptimizationService.RunGeneticAlgorithmNewWaySelection(descriptor);
+			List<RunResults> runResults = new();
+			var result = gaOptimizationService.RunGeneticAlgorithmNewWaySelection(descriptor);
+			if (result.IsFailure)
+			{
+				return Result<List<RunResults>>.Failure("New way genetic algorithm failed: "+result.Error);
+			}
+			runResults.Add(result.Value);
+			result = gaOptimizationService.RunGeneticAlgorithmOldWaySelection(descriptor);
+			if (result.IsFailure)
+			{
+				return Result<List<RunResults>>.Failure("Old way genetic algorithm failed: " + result.Error);
+			}
+			runResults.Add(result.Value);
+			return runResults;
 		}
 	}
 }

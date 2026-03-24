@@ -34,7 +34,17 @@ namespace Urbanflow.src.backend.models.util
 		public readonly static List<(ENodeType, List<string>)> specificStops = [
 			(ENodeType.Terminal, ["SP1856", "SP1632", "SA911", "SP1860", "SP1881", "SA849", "SP1673", "SA828", "SP1635", "SP1863", "SP1674", "SP1857", "SA910", "SP1866", "SA938", "SP1751", "SA837", "SP1893", "SA947", "SP1892", "SP1882", "SA864", "SP1675", "SP1633", "SP1750", "SA818", "SP1891", "SA946", "SA869", "SP1658", "SA883", "SP1665", "SP1662", "SA845", "SP1771", "SA884", "SP1772"]),
 			(ENodeType.Junction, ["SA853", "SP1661", "SP1660", "SP1895", "SP1683", "SA816", "SP1694", "SP1826", "SP1858", "SP1693", "SP1861", "SP1679", "SA825", "SP1742", "SP1743", "SA850", "SP1864", "SA950", "SP1865", "SA866", "SP1668", "SP1621", "SP1728", "SA905", "SP1729", "SP1726",  "SP1898", "SP1725", "SP1727", "SP1730", "SP1731", "SA894", "SP1827", "SP1623", "SA813", "SP1872", "SP1669", "SA842", "SP1814", "SP1815"])
-			
 		];
+
+		public readonly static List<(string[], string[])> stoptostopList = [
+			(["SA883", "SP1665"],["SP1883", "SP1884", "SA940"]),
+			(["SP1633", "SP1750", "SA818"],["SP1842", "SA936", "SP1841"]),
+			(["SP1842", "SA936", "SP1841"],["SA844", "SP1868", "SP1637"]),
+			(["SA844", "SP1868", "SP1637"],["SA827", "SP1677"]),
+			(["SA827", "SP1677"],["SP1900", "SA953", "SP1899"]),
+			(["SP1900", "SA953", "SP1899"],["SA933", "SP1867", "SP1890"]),
+			(["SA933", "SP1867", "SP1890"],["SP1891", "SA946"]),
+			
+			];
 	}
 }

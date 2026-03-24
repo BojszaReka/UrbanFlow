@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Windows.Media.Animation;
 using Urbanflow.src.backend.models.gtfs;
 using Urbanflow.src.backend.models.util;
 using yWorks.Layout.Graph;
@@ -20,6 +21,8 @@ namespace Urbanflow.src.backend.models.ga
 		//helper values
 		public List<int> Parents { get; } = [];
 		public List<GenomeRoute> AllRoutes { get; private set; }
+		public double UnMetStopPercentage = 0.0;
+		public List<Guid> UnMetStopList = [];
 
 
 		//initialization
@@ -48,7 +51,7 @@ namespace Urbanflow.src.backend.models.ga
 			{
 				throw new Exception($"Genome (ID: {id}, Generation: {GenerationID}) initialization failed at creating new routes multiple times, not enough routes got created");
 			}
-			var fitnessResult = CalculateFitnessValue(parameters, network);
+			var fitnessResult = CalculateFitnessValue(parameters, network, "route");
 			if (fitnessResult.IsFailure)
 			{
 				throw new Exception($"Genome (ID: {id}, Generation: {GenerationID}) initialization failed at calculating fitness value, error: {fitnessResult.Error}");
@@ -94,7 +97,7 @@ namespace Urbanflow.src.backend.models.ga
 					break;
 				default: break;
 			}
-			var fitnessResult = CalculateFitnessValue(parameters, network);
+			var fitnessResult = CalculateFitnessValue(parameters, network, step);
 			if (fitnessResult.IsFailure)
 			{
 				throw new Exception($"Genome (ID: {id}, Generation: {GenerationID}) initialization failed at calculating fitness value, error: {fitnessResult.Error}");
@@ -114,11 +117,11 @@ namespace Urbanflow.src.backend.models.ga
 				case "route": 
 					for (int i = 0; i < parameters.Genome_RouteCount; i++)
 					{
-						var mutationResult = GAUtil.PerformRouteMutation(parent.MutableRoutes[i], network, parameters);
+						var mutationResult = GAUtil.PerformRouteMutation(parent.MutableRoutes[i], parent.UnMetStopList, network, parameters);
 						int trycount = 0;
 						while (mutationResult.IsFailure)
 						{
-							mutationResult = GAUtil.PerformRouteMutation(parent.MutableRoutes[i], network, parameters);
+							mutationResult = GAUtil.PerformRouteMutation(parent.MutableRoutes[i], parent.UnMetStopList, network, parameters);
 							trycount++;
 						}
 						if (mutationResult.IsFailure)
@@ -145,7 +148,7 @@ namespace Urbanflow.src.backend.models.ga
 					break;
 				default: break;
 			}
-			var fitnessResult = CalculateFitnessValue(parameters, network);
+			var fitnessResult = CalculateFitnessValue(parameters, network, step);
 			if (fitnessResult.IsFailure)
 			{
 				throw new Exception($"Genome (ID: {id}, Generation: {GenerationID}) initialization failed at calculating fitness value, error: {fitnessResult.Error}");
@@ -157,95 +160,101 @@ namespace Urbanflow.src.backend.models.ga
 		//Fitness function
 		public Result<double> CalculateFitnessValue(in OptimizationParameters parameters, in NetworkInformation network, string step = "") 
 		{
-			double fitnessValue = 0;
-
-			//statikus járatok összefésülése a módosíthatókkal
-			AllRoutes = [.. MutableRoutes, .. network.StaticRoutes];
-			if (AllRoutes == null || AllRoutes.Count == 0)
+			try
 			{
-				return Result<double>.Failure("No routes to work with.");
-			}
+				double fitnessValue = 0;
 
-			Result<double> result;
-			switch (step)
+				//statikus járatok összefésülése a módosíthatókkal
+				AllRoutes = [.. MutableRoutes, .. network.StaticRoutes];
+				if (AllRoutes == null || AllRoutes.Count == 0)
+				{
+					return Result<double>.Failure("No routes to work with.");
+				}
+
+				Result<double> result;
+				switch (step)
+				{
+					case "route":
+						////Soft Constraint: Terminal distribution between routes
+						//result = CalculateSoftConstraint_Route_Terminal(network);
+						//if (result.IsFailure) return result;
+						//fitnessValue += result.Value;
+
+						////Soft Constraint: Degree distribution betweeen stops
+						//result = CalculateSoftConstraint_Route_Hub(network);
+						//if (result.IsFailure) return result;
+						//fitnessValue += result.Value;
+
+						////Soft Constraint: Route distribution between districts
+						//result = CalculateSoftConstraint_Route_District(network);
+						//if (result.IsFailure) return result;
+						//fitnessValue += result.Value;
+
+						////Soft Constraint: Routes are the required length
+						//result = CalculateSoftConstraint_Route_Length(parameters);
+						//if (result.IsFailure) return result;
+						//fitnessValue += result.Value;					
+
+						////Hard Constraint: Are all stops included in the network
+						//result = CalculateHardConstraint_Route_Coverage(network);
+						//if (result.IsFailure) return result;
+						//fitnessValue += result.Value;
+
+						////Hard Constraint: Are the first and last stops terminals
+						//result = CalculateHardConstraint_Route_Terminal(network);
+						//if (result.IsFailure) return result;
+						//fitnessValue += result.Value;
+
+						////Hard Constraint: Are the routes loop free
+						//result = CalculateHardConstraint_Route_Loop();
+						//if (result.IsFailure) return result;
+						//fitnessValue += result.Value;
+
+						////Hard Constraint: Redudancy of routes over allowed treshold
+						//result = CalculateHardConstraint_Route_Redundancy(parameters);
+						//if (result.IsFailure) return result;
+						//fitnessValue += result.Value;
+
+						//All of the above included in one:
+						result = CalculateRouteFitness(parameters, network);
+						if (result.IsFailure) return result;
+						fitnessValue += result.Value;
+
+						//Hard Constraint: Transfer count over allowed treshold
+						result = CalculateHardConstraint_Route_Transfer(parameters, network);
+						if (result.IsFailure) return result;
+						fitnessValue += result.Value;
+
+						//Soft Constraint: Avarage travel time is optimal
+						result = CalculateSoftConstraint_Route_Traveltime(network);
+						if (result.IsFailure) return result;
+						fitnessValue += result.Value;
+
+						break;
+					case "time":
+
+						//Soft Constraint: Optimize the waiting time at changes
+						result = CalculateSoftConstraint_Time_Wait(parameters, network);
+						if (result.IsFailure) return result;
+						fitnessValue += result.Value;
+
+						//Soft Constraint: Optimize the total time the travel takes, including waiting for changes
+						result = CalculateSoftConstraint_Time_TotalTravel(parameters, network);
+						if (result.IsFailure) return result;
+						fitnessValue += result.Value;
+
+						//Hard Constraint: The busses needed to aperate at the same time are below fleet size
+						result = CalculateHardConstraint_Time_Fleet(parameters, network);
+						if (result.IsFailure) return result;
+						fitnessValue += result.Value;
+
+						break;
+				}
+				return Result<double>.Success(fitnessValue);
+			}catch(Exception ex)
 			{
-				case "route":
-					////Soft Constraint: Terminal distribution between routes
-					//result = CalculateSoftConstraint_Route_Terminal(network);
-					//if (result.IsFailure) return result;
-					//fitnessValue += result.Value;
-
-					////Soft Constraint: Degree distribution betweeen stops
-					//result = CalculateSoftConstraint_Route_Hub(network);
-					//if (result.IsFailure) return result;
-					//fitnessValue += result.Value;
-
-					////Soft Constraint: Route distribution between districts
-					//result = CalculateSoftConstraint_Route_District(network);
-					//if (result.IsFailure) return result;
-					//fitnessValue += result.Value;
-
-					////Soft Constraint: Routes are the required length
-					//result = CalculateSoftConstraint_Route_Length(parameters);
-					//if (result.IsFailure) return result;
-					//fitnessValue += result.Value;					
-
-					////Hard Constraint: Are all stops included in the network
-					//result = CalculateHardConstraint_Route_Coverage(network);
-					//if (result.IsFailure) return result;
-					//fitnessValue += result.Value;
-
-					////Hard Constraint: Are the first and last stops terminals
-					//result = CalculateHardConstraint_Route_Terminal(network);
-					//if (result.IsFailure) return result;
-					//fitnessValue += result.Value;
-
-					////Hard Constraint: Are the routes loop free
-					//result = CalculateHardConstraint_Route_Loop();
-					//if (result.IsFailure) return result;
-					//fitnessValue += result.Value;
-
-					////Hard Constraint: Redudancy of routes over allowed treshold
-					//result = CalculateHardConstraint_Route_Redundancy(parameters);
-					//if (result.IsFailure) return result;
-					//fitnessValue += result.Value;
-
-					//All of the above included in one:
-					result = CalculateRouteFitness(parameters, network);
-					if (result.IsFailure) return result;
-					fitnessValue += result.Value;
-
-					//Hard Constraint: Transfer count over allowed treshold
-					result = CalculateHardConstraint_Route_Transfer(parameters, network);
-					if (result.IsFailure) return result;
-					fitnessValue += result.Value;
-
-					//Soft Constraint: Avarage travel time is optimal
-					result = CalculateSoftConstraint_Route_Traveltime(network);
-					if (result.IsFailure) return result;
-					fitnessValue += result.Value;
-					
-					break;
-				case "time":
-
-					//Soft Constraint: Optimize the waiting time at changes
-					result = CalculateSoftConstraint_Time_Wait(parameters, network);
-					if (result.IsFailure) return result;
-					fitnessValue += result.Value;
-
-					//Soft Constraint: Optimize the total time the travel takes, including waiting for changes
-					result = CalculateSoftConstraint_Time_TotalTravel(parameters, network);
-					if (result.IsFailure) return result;
-					fitnessValue += result.Value;
-
-					//Hard Constraint: The busses needed to aperate at the same time are below fleet size
-					result = CalculateHardConstraint_Time_Fleet(parameters, network);
-					if (result.IsFailure) return result;
-					fitnessValue += result.Value;
-
-					break;
+				throw new Exception("Fitness value calculatipn failed: "+ex.Message);
 			}
-			return Result<double>.Success(fitnessValue);
 		}
 
 
@@ -836,32 +845,52 @@ namespace Urbanflow.src.backend.models.ga
 					if (hubDegrees.TryGetValue(stop, out int value)) hubDegrees[stop] = ++value;
 				}
 
-				// terminal constraint
-				var fromOn = onRoute[0];
-				var toOn = onRoute[^1];
-				var fromBack = backRoute[0];
-				var toBack = backRoute[^1];
+				if(backRoute.Count > 0)
+				{
+					// terminal constraint
+					var fromOn = onRoute[0];
+					var toOn = onRoute[^1];
+					var fromBack = backRoute[0];
+					var toBack = backRoute[^1];
 
-				if (fromBack != toOn) terminalMistakes++;
-				if (fromOn != toBack) terminalMistakes++;
+					if (fromBack != toOn) terminalMistakes++;
+					if (fromOn != toBack) terminalMistakes++;
 
-				if (!terminals.Contains(fromOn)) terminalMistakes++;
-				if (!terminals.Contains(toOn)) terminalMistakes++;
-				if (!terminals.Contains(fromBack)) terminalMistakes++;
-				if (!terminals.Contains(toBack)) terminalMistakes++;
+					if (!terminals.Contains(fromOn)) terminalMistakes++;
+					if (!terminals.Contains(toOn)) terminalMistakes++;
+					if (!terminals.Contains(fromBack)) terminalMistakes++;
+					if (!terminals.Contains(toBack)) terminalMistakes++;
 
-				if (!terminalUsage.ContainsKey(fromOn)) terminalUsage[fromOn] = 0;
-				if (!terminalUsage.ContainsKey(toOn)) terminalUsage[toOn] = 0;
+					if (!terminalUsage.ContainsKey(fromOn)) terminalUsage[fromOn] = 0;
+					if (!terminalUsage.ContainsKey(toOn)) terminalUsage[toOn] = 0;
+					if (!terminalUsage.ContainsKey(fromBack)) terminalUsage[fromBack] = 0;
+					if (!terminalUsage.ContainsKey(toBack)) terminalUsage[toBack] = 0;
 
-				terminalUsage[fromOn]++;
-				terminalUsage[toOn]++;
+					terminalUsage[fromOn]++;
+					terminalUsage[toOn]++;
+					terminalUsage[fromBack]++;
+					terminalUsage[toBack]++;
+				}
+				else
+				{
+					// terminal constraint
+					var fromOn = onRoute[0];
+					var toOn = onRoute[^1];
+					if (!terminals.Contains(fromOn)) terminalMistakes++;
+					if (!terminals.Contains(toOn)) terminalMistakes++;
+					if (!terminalUsage.ContainsKey(fromOn)) terminalUsage[fromOn] = 0;
+					if (!terminalUsage.ContainsKey(toOn)) terminalUsage[toOn] = 0;
+					terminalUsage[fromOn]++;
+					terminalUsage[toOn]++;
+				}
+				
 
 				// length deviation
 				double onDev = Math.Abs(onRoute.Count * invTargetLength - 1);
-				if (onDev > 0.2) lengthDeviation += onDev;
+				if (onDev > 0.35) lengthDeviation += onDev;
 
 				double backDev = Math.Abs(backRoute.Count * invTargetLength - 1);
-				if (backDev > 0.2) lengthDeviation += backDev;
+				if (backDev > 0.35) lengthDeviation += backDev;
 			}
 
 			// redundancy check
@@ -945,11 +974,14 @@ namespace Urbanflow.src.backend.models.ga
 
 			double allConnections = Factorial(districts.Count);
 
+			UnMetStopPercentage = (double)unmetStops.Count / (double)network.AllStops.Count;
+			UnMetStopList = unmetStops.ToList();
+
 			double score =
 				  redundantPairs * 10
 				+ loopCount * 100
 				+ terminalMistakes * 1000
-				+ unmetStops.Count * 1000
+				+ unmetStops.Count * 10000
 				+ (lengthDeviation == 0 ? 0 : lengthDeviation / routeCount * 2)
 				+ districtConnections / allConnections
 				+ hubGini

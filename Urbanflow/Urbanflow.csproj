@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <PackageReference Include="BruTile" Version="6.0.0" />
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="GeoAPI" Version="1.7.5" />
     <PackageReference Include="GeoAPI.CoordinateSystems" Version="1.7.5" />

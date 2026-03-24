@@ -21,13 +21,21 @@ namespace Urbanflow.src.backend.services
 			//string[] steps = ["route", "time"];
 			string[] steps = ["route"];
 
+			Result<Genome> result;
 			var currentPopulation = new Population(1, 1); // first Population
-			var result = currentPopulation.PopulateByIntializingGenomes(OptimizationSettings, NetworkInformation);
-			if (result.IsFailure)
+			try
 			{
-				return Result<RunResults>.Failure(result.Error);
+				result = currentPopulation.PopulateByIntializingGenomes(OptimizationSettings, NetworkInformation);
+				if (result.IsFailure)
+				{
+					return Result<RunResults>.Failure(result.Error);
+				}
+				FitnessValuesPerGenerations.AddRange(currentPopulation.GatherFitnessValues());
 			}
-			FitnessValuesPerGenerations.AddRange(currentPopulation.GatherFitnessValues());
+			catch (Exception e) {
+				throw new Exception("Initializing genomes failed because: "+e.Message);
+			}
+			
 
 			foreach (var step in steps) {
 				for (int i = 0; i < OptimizationSettings.IterationNumber; i++)

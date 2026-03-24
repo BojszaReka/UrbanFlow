@@ -9,55 +9,61 @@ namespace Urbanflow.src.backend.models.ga
 	{
 		public static Result<List<Guid>> GetShortestPath(Guid start, Guid end, in NetworkInformation network)
 		{
-			var distances = new Dictionary<Guid, double>();
-			var previousNodes = new Dictionary<Guid, Guid>();
-			var priorityQueue = new PriorityQueue<Guid, double>();
+			if (!network.StopConnectivityMatrix.ContainsKey(start) || !network.StopConnectivityMatrix.ContainsKey(end))
+				return Result<List<Guid>>.Failure("The start and/or end stop is not found in the network");
 
-			// Távolságok inicializálása
+			var distances = new Dictionary<Guid, double>();
+			var previous = new Dictionary<Guid, Guid?>();
+
+			var queue = new PriorityQueue<Guid, double>();
+
+			// Initialize
 			foreach (var node in network.StopConnectivityMatrix.Keys)
 			{
 				distances[node] = double.MaxValue;
+				previous[node] = null;
 			}
 
 			distances[start] = 0;
-			priorityQueue.Enqueue(start, 0);
+			queue.Enqueue(start, 0);
 
-			while (priorityQueue.Count > 0)
+			while (queue.Count > 0)
 			{
-				var current = priorityQueue.Dequeue();
+				var current = queue.Dequeue();
 
-				if (current == end) break;
-				if (!network.StopConnectivityMatrix.ContainsKey(current)) continue;
+				// Early exit → BIG performance win
+				if (current == end)
+					break;
 
-				foreach (var (Destination, Weight) in network.StopConnectivityMatrix[current])
+				if (!network.StopConnectivityMatrix.TryGetValue(current, out var neighbors))
+					continue;
+
+				foreach (var (neighbor, weight) in neighbors)
 				{
-					double alt = distances[current] + Weight;
+					var newDist = distances[current] + weight;
 
-					// Relaxáció
-					if (!distances.TryGetValue(Destination, out double value) || alt < value)
+					if (newDist < distances[neighbor])
 					{
-						value = alt;
-						distances[Destination] = value;
-						previousNodes[Destination] = current;
-						priorityQueue.Enqueue(Destination, alt);
+						distances[neighbor] = newDist;
+						previous[neighbor] = current;
+						queue.Enqueue(neighbor, newDist);
 					}
 				}
 			}
 
-			// Útvonal visszafejtése
-			var path = new List<Guid>();
-			var curr = end;
-			if (!previousNodes.ContainsKey(curr) && curr != start)
+			// No path
+			if (distances[end] == double.MaxValue)
 				return Result<List<Guid>>.Failure("No path found");
 
-			while (curr != start)
+			// Reconstruct path
+			var path = new List<Guid>();
+			for (var at = end; at != null; at = previous[at].GetValueOrDefault())
 			{
-				path.Add(curr);
-				curr = previousNodes[curr];
+				path.Add(at);
+				if (at == start) break;
 			}
-			path.Add(start);
-			path.Reverse();
 
+			path.Reverse();
 			return Result<List<Guid>>.Success(path);
 		}
 
@@ -93,22 +99,40 @@ namespace Urbanflow.src.backend.models.ga
 				i++;
 			}
 
+			List<Guid> randomStops = new List<Guid>();
+			i = 0;
+			while (i < parameters.Genome_HubNumberInRoute+1)
+			{
+				randomStops.Add(network.GenericStops[Random.Shared.Next(0, network.GenericStops.Count)]);
+				i++;
+			}
+
+			List<Guid> neededStops = new();
+			for (int j = 0; j < hubs.Count; j++)
+			{
+				neededStops.Add(randomStops[j]); // stop
+				neededStops.Add(hubs[j]);        // hub
+			}
+
+			// add the final stop (since stops = hubs + 1)
+			neededStops.Add(randomStops[^1]);
+
 			// based on network connectivity connect the terminals and hubs with the (shortest) possible paths 
 			List<Guid> OnRoute = [];
-			var pathResult = GAUtil.GetShortestPath(fromTerminal, hubs[0], network);
+			var pathResult = GAUtil.GetShortestPath(fromTerminal, neededStops[0], network);
 			if (pathResult.IsFailure)
 				return Result<GenomeRoute>.Failure(pathResult.Error);
 			OnRoute = [.. OnRoute, .. pathResult.Value];
 			i = 1;
 			while (i < hubs.Count)
 			{
-				pathResult = GAUtil.GetShortestPath(hubs[i - 1], hubs[i], network);
+				pathResult = GAUtil.GetShortestPath(neededStops[i - 1], neededStops[i], network);
 				if (pathResult.IsFailure)
 					return Result<GenomeRoute>.Failure(pathResult.Error);
 				OnRoute = [.. OnRoute, .. pathResult.Value];
 				i++;
 			}
-			pathResult = GAUtil.GetShortestPath(hubs[i - 1], toTerminal, network);
+			pathResult = GAUtil.GetShortestPath(neededStops[i - 1], toTerminal, network);
 			if (pathResult.IsFailure)
 				return Result<GenomeRoute>.Failure(pathResult.Error);
 			OnRoute = [.. OnRoute, .. pathResult.Value];
@@ -158,10 +182,18 @@ namespace Urbanflow.src.backend.models.ga
 				Guid mn = commonStops[Random.Shared.Next(CommonStopCount)];
 				List<Guid> ChildOnRoute;
 				List<List<Guid>> splits = [];
-				splits.Add(route1.OnRoute[..route1.OnRoute.IndexOf(mn)]);
-				splits.Add(route1.OnRoute.Slice(route1.OnRoute.IndexOf(mn) + 1, route1.OnRoute.Count));
-				splits.Add(route1.OnRoute[..route2.OnRoute.IndexOf(mn)]);
-				splits.Add(route1.OnRoute.Slice(route2.OnRoute.IndexOf(mn) + 1, route2.OnRoute.Count));
+
+				var index1 = route1.OnRoute.IndexOf(mn);
+				var index2 = route2.OnRoute.IndexOf(mn);
+
+				splits.Add(route1.OnRoute[..index1]);
+				splits.Add(route2.OnRoute[..index2]);
+
+				if (index1 != route1.OnRoute.Count - 1)
+				{
+					splits.Add(route1.OnRoute.Slice(index1 + 1, route1.OnRoute.Count - (index1 + 1)));
+					splits.Add(route2.OnRoute.Slice(index2 + 1, route2.OnRoute.Count - (index2 + 1)));
+				}
 
 				int i = Random.Shared.Next(4);
 				ChildOnRoute = splits[i];
@@ -221,7 +253,7 @@ namespace Urbanflow.src.backend.models.ga
 			return Result<GenomeRoute>.Success(Random.Shared.Next(2) == 0 ? route1 : route2); // Fallback
 		}
 
-		public static Result<GenomeRoute> PerformRouteMutation(in GenomeRoute route, in NetworkInformation network, in OptimizationParameters parameters)
+		public static Result<GenomeRoute> PerformRouteMutation(in GenomeRoute route, List<Guid> unMetStopList, in NetworkInformation network, in OptimizationParameters parameters)
 		{
 			var newTerminalList = network.Terminals;
 			newTerminalList.Remove(route.OnRoute[0]);
@@ -230,24 +262,51 @@ namespace Urbanflow.src.backend.models.ga
 			var newTerminal = newTerminalList[Random.Shared.Next(newTerminalList.Count)];
 			var splitNodeIndex = Random.Shared.Next(route.OnRoute.Count - 6);
 			var splitNode = route.OnRoute[splitNodeIndex + 3];
+			int remainingLength = route.OnRoute.Count - (splitNodeIndex + 3);
+
+			List<Guid> includedStops = new List<Guid>();
+			int i = 0;
+			int includecount = (remainingLength / 3) + Random.Shared.Next(0, 2);
+			while (i < includecount + 1)
+			{
+				includedStops.Add(unMetStopList[Random.Shared.Next(0, unMetStopList.Count)]);
+				i++;
+			}
+
 
 			List<Guid> ChildOnRoute = [];
-			if (splitNodeIndex < route.OnRoute.Count / 2)
+
+			List<Guid> remainingSplitRoute = [.. route.OnRoute.TakeWhile(s => s != splitNode)];
+
+			List<Guid> path = new();
+			Guid current = newTerminal;
+
+			// go through included stops
+			foreach (var stop in includedStops)
 			{
-				List<Guid> remainingSplitRoute = [.. route.OnRoute.TakeWhile(s => s != splitNode)];
-				var pathResult = GAUtil.GetShortestPath(splitNode, newTerminal, network);
-				if (pathResult.IsFailure)
-					return Result<GenomeRoute>.Failure(pathResult.Error);
-				ChildOnRoute = [.. remainingSplitRoute, .. pathResult.Value];
+				var segment = GAUtil.GetShortestPath(current, stop, network);
+				if (segment.IsFailure)
+					return Result<GenomeRoute>.Failure(segment.Error);
+
+				if (path.Count > 0)
+					path.AddRange(segment.Value.Skip(1));
+				else
+					path.AddRange(segment.Value);
+
+				current = stop;
 			}
+
+			// final segment to splitNode
+			var lastSegment = GAUtil.GetShortestPath(current, splitNode, network);
+			if (lastSegment.IsFailure)
+				return Result<GenomeRoute>.Failure(lastSegment.Error);
+
+			if (path.Count > 0)
+				path.AddRange(lastSegment.Value.Skip(1));
 			else
-			{
-				var remainingSplitRoute = route.OnRoute.SkipWhile(s => s != splitNode).ToList();
-				var pathResult = GAUtil.GetShortestPath(newTerminal, splitNode, network);
-				if (pathResult.IsFailure)
-					return Result<GenomeRoute>.Failure(pathResult.Error);
-				ChildOnRoute = [.. pathResult.Value, .. remainingSplitRoute];
-			}
+				path.AddRange(lastSegment.Value);
+
+			ChildOnRoute = [.. remainingSplitRoute, .. path];
 
 			var ChildBackRouteResult = GetBackRoute(ChildOnRoute, network, parameters);
 			if (ChildBackRouteResult.IsFailure)

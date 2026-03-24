@@ -583,7 +583,11 @@ namespace Urbanflow.src.backend.models.gtfs
 			if (stop != null && stop.ParentStation != null)
 			{
 				var parentStation = Stops.Where(x => x.StopId == stop.ParentStation).FirstOrDefault();
-				return parentStation;
+				if (parentStation != null)
+				{
+					return parentStation;
+				}
+				
 			}
 			return stop;
 		}
@@ -607,43 +611,77 @@ namespace Urbanflow.src.backend.models.gtfs
 
 			foreach (var route in Routes)
 			{
-				if (!tripsByRoute.TryGetValue(route.RouteId, out var trip))
-					continue;
-
-				if (!stopTimesByTrip.TryGetValue(trip.TripId, out var stopTimes))
-					continue;
-
-				for (int i = 0; i < stopTimes.Count - 1; i++)
+				try
 				{
-					var fromStopTime = stopTimes[i];
-					var toStopTime = stopTimes[i + 1];
+					if (!tripsByRoute.TryGetValue(route.RouteId, out var trip))
+						continue;
 
-					if (!stopDict.TryGetValue(fromStopTime.StopId, out var fromStop))
-						return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure($"Stop not found (ID: {fromStopTime.StopId}).");
+					if (!stopTimesByTrip.TryGetValue(trip.TripId, out var stopTimes))
+						continue;
 
-					if (!stopDict.TryGetValue(toStopTime.StopId, out var toStop))
-						return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure($"Stop not found (ID: {toStopTime.StopId}).");
+					for (int i = 0; i < stopTimes.Count - 1; i++)
+					{
+						var fromStopTime = stopTimes[i];
+						var toStopTime = stopTimes[i + 1];
 
-					var departureTime = TimeSpan.Parse(fromStopTime.DepartureTime);
-					var arrivalTime = TimeSpan.Parse(toStopTime.ArrivalTime);
+						if (!stopDict.TryGetValue(fromStopTime.StopId, out var fromStop))
+							return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure($"Stop not found (ID: {fromStopTime.StopId}).");
 
-					int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
+						if (!stopDict.TryGetValue(toStopTime.StopId, out var toStop))
+							return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure($"Stop not found (ID: {toStopTime.StopId}).");
 
-					allEdges.Add((GetParentStopOfStop(fromStop.Id).Id, GetParentStopOfStop(toStop.Id).Id, travelTimeMinutes));
+						var departureTime = TimeSpan.Parse(fromStopTime.DepartureTime);
+						var arrivalTime = TimeSpan.Parse(toStopTime.ArrivalTime);
+
+						int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
+
+						allEdges.Add((GetParentStopOfStop(fromStop.Id).Id, GetParentStopOfStop(toStop.Id).Id, travelTimeMinutes));
+					}
+				}
+				catch (Exception ex)
+				{
+					return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure($"Extract StopConnectivityMatrix failed for route {route.LongName}, error: {ex.Message}");
+				}
+
+			}
+
+			foreach (var (fromlist, tolist) in VeszpremDistrict.stoptostopList)
+			{
+				foreach (var fromstopId in fromlist)
+				{
+					foreach (var tostopId in tolist)
+					{
+
+						if (!stopDict.TryGetValue(fromstopId, out var fromStop))
+							return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure($"Stop not found (ID: {fromstopId}).");
+
+						if (!stopDict.TryGetValue(tostopId, out var toStop))
+							return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure($"Stop not found (ID: {tostopId}).");
+
+						int travelTimeMinutes = 6;
+
+						allEdges.Add((GetParentStopOfStop(fromStop.Id).Id, GetParentStopOfStop(toStop.Id).Id, travelTimeMinutes));
+					}
 				}
 			}
 
-			if (allEdges.Count == 0)
-				return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure("No data found for the edges of the network");
+				if (allEdges.Count == 0)
+					return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure("No data found for the edges of the network");
 
-			Dictionary<Guid, List<(Guid Destination, double Weight)>> connectivityMatrix = [];
-			foreach (var (stop1id, stop2id, minutes) in allEdges)
-			{
-				connectivityMatrix[stop1id].Add((stop2id, minutes));
-			}
+				Dictionary<Guid, List<(Guid Destination, double Weight)>> connectivityMatrix = [];
+				foreach (var (stop1id, stop2id, minutes) in allEdges)
+				{
+					if (!connectivityMatrix.ContainsKey(stop1id))
+					{
+						connectivityMatrix[stop1id] = new List<(Guid, double)>();
+					}
 
-			return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Success(connectivityMatrix);
+					connectivityMatrix[stop1id].Add((stop2id, minutes));
+				}
+
+				return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Success(connectivityMatrix);
 		}
+		
 
 		internal Result<List<Guid>> GatherAllStopIds()
 		{

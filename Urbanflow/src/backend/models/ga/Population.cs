@@ -51,17 +51,37 @@ namespace Urbanflow.src.backend.models.ga
 			List<Genome> newGenomes = [];
 			var sortedGenomes = Genomes.OrderBy(g => g.FitnessValue).ToList();
 			var random = new Random();
+			double mutationptimizer = 0.25;
+			double mutationIndex = 1;
 
 			for (int i = 1; i <= settings.PopulationSize; i++)
 			{
-				string birthMode = birthmodes[random.Next(0, 1)];
-				Genome g;
-
 				var tournamentResult = GAUtil.TournamentSelect(sortedGenomes, 3, random);
 				if (tournamentResult.IsFailure)
 				{
 					return Result<Genome>.Failure($"Process of populating when creating new genomes failed at crossing when tried TournamentSelect for parent_1, iteration: {i}, error: {tournamentResult.Error}");
 				}
+
+				int index = 0;
+				if (0 < tournamentResult.Value.UnMetStopPercentage)
+				{
+					if (mutationIndex < 0)
+					{
+						mutationIndex = 1;
+					}
+					mutationIndex = mutationIndex - mutationptimizer;
+					if (mutationIndex >= 0.5)
+					{
+						index = 1;
+					}
+				}
+				else
+				{
+					index = Random.Shared.Next(0, 1);
+				}
+				string birthMode = birthmodes[random.Next(0, 1)];
+
+				Genome g;
 
 				switch (birthMode)
 				{
@@ -114,17 +134,36 @@ namespace Urbanflow.src.backend.models.ga
 			List<Genome> newGenomes = [];
 			var sortedGenomes = GenomeList.OrderBy(g => g.FitnessValue).ToList();
 			var random = new Random();
+			double mutationptimizer = 0.25;
+			double mutationIndex = 1;
 
 			for (int i = Genomes.Count; i <= settings.PopulationSize; i++)
 			{
-				string birthMode = birthmodes[random.Next(0, 1)];
-				Genome g;
-
 				var tournamentResult = GAUtil.TournamentSelect(sortedGenomes, 3, random);
 				if (tournamentResult.IsFailure)
 				{
 					return Result<Genome>.Failure($"Process of populating when creating new genomes failed at crossing when tried TournamentSelect for parent_1, iteration: {i}, error: {tournamentResult.Error}");
 				}
+
+				int index = 0;
+				if (0 < tournamentResult.Value.UnMetStopPercentage)
+				{
+					if (mutationIndex < 0)
+					{
+						mutationIndex = 1;
+					}
+					mutationIndex = mutationIndex - mutationptimizer;
+					if (mutationIndex >= 0.5)
+					{
+						index = 1;
+					}
+				}
+				else
+				{
+					index = Random.Shared.Next(0, 1);
+				}
+				string birthMode = birthmodes[random.Next(0, 1)];
+				Genome g;
 
 				switch (birthMode)
 				{
