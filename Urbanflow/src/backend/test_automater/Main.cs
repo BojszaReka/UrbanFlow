@@ -128,12 +128,13 @@ namespace Urbanflow.src.backend.test_automater
 			{
 				foreach (var (name, iteration, results) in list)
 				{
-					foreach (var (genNum, fitness) in results.FitnessValuesPerGenerations)
+					foreach (var (genNum, genomeNum, fitness) in results.FitnessValuesPerGenerations)
 					{
 						worksheet.Cell(currentRow, 1).Value = iteration;
 						worksheet.Cell(currentRow, 2).Value = genNum;
-						worksheet.Cell(currentRow, 3).Value = fitness;
-						worksheet.Cell(currentRow, 4).Value = typeLabel;
+						worksheet.Cell(currentRow, 3).Value = genomeNum;
+						worksheet.Cell(currentRow, 4).Value = fitness;
+						worksheet.Cell(currentRow, 5).Value = typeLabel;
 						currentRow++;
 					}
 				}

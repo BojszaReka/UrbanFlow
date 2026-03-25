@@ -350,13 +350,13 @@ namespace Urbanflow.src.backend.models.ga
 				if (direct)
 					continue;
 
-				var pathResult = GAUtil.GetShortestPath(from, to, network);
+				var pathResult = GetShortestPath(from, to, network);
 				if (pathResult.IsFailure)
 					return Result<List<Guid>?>.Failure(pathResult.Error);
 
 				var path = pathResult.Value;
 
-				if (path.Count < 3)
+				if (path.Count < 4)
 				{
 					backRoute.RemoveAt(i + 1);
 
@@ -366,28 +366,46 @@ namespace Urbanflow.src.backend.models.ga
 					continue;
 				}
 
-				if (i + 2 < backRoute.Count)
-				{
-					var next = backRoute[i + 2];
+				int nexthop = 2;
+				bool foundBackroute = false;
+				bool keepon = true;
+				int trycount = 0;
 
-					pathResult = GAUtil.GetShortestPath(from, next, network);
+				while (i + nexthop < backRoute.Count && !foundBackroute && keepon)
+				{
+					var next = backRoute[i + nexthop];
+
+					pathResult = GetShortestPath(from, next, network);
 					if (pathResult.IsFailure)
 						return Result<List<Guid>?>.Failure(pathResult.Error);
 
 					path = pathResult.Value;
 
-					if (path.Count < 3)
+					if (path.Count < nexthop + 4)
 					{
-						backRoute.RemoveAt(i + 1);
+						backRoute.RemoveRange(i, nexthop-1);
 
 						for (int p = 1; p < path.Count; p++)
 							backRoute.Insert(i + p, path[p]);
 
-						continue;
+						foundBackroute = true;
 					}
+
+					if(trycount > 6)
+					{
+						keepon = false;
+					}
+
+					trycount++;
+					nexthop++;
 				}
 
-				if (parameters.Genome_AllowOneWayRoutes)
+				if (foundBackroute)
+				{
+					continue;
+				}
+
+				if (parameters.Genome_AllowOneWayRoutes && !foundBackroute)
 				{
 					return Result<List<Guid>?>.Success(null);
 				}

@@ -16,7 +16,7 @@ namespace Urbanflow.src.backend.services
 		{
 			//List<Population> Generations = [];
 			List<Genome> BestGenomes = [];
-			List<(int, double)> FitnessValuesPerGenerations = [];
+			List<(int, int, double)> FitnessValuesPerGenerations = [];
 
 			//string[] steps = ["route", "time"];
 			string[] steps = ["route"];
@@ -68,7 +68,7 @@ namespace Urbanflow.src.backend.services
 		{
 			//List<Population> Generations = [];
 			List<Genome> BestGenomes = [];
-			List<(int, double)> FitnessValuesPerGenerations = [];
+			List<(int, int, double)> FitnessValuesPerGenerations = [];
 
 			//string[] steps = ["route", "time"];
 			string[] steps = ["route"];

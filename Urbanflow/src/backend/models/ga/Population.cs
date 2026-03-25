@@ -204,12 +204,12 @@ namespace Urbanflow.src.backend.models.ga
 			return Result<Population>.Success(nextPopulation);
 		}
 
-		public List<(int, double)> GatherFitnessValues()
+		public List<(int, int, double)> GatherFitnessValues()
 		{
-			List<(int, double)> fitnessValueList = [];
+			List<(int, int, double)> fitnessValueList = [];
 			foreach (Genome genome in Genomes)
 			{
-				fitnessValueList.Add((GenerationID, genome.FitnessValue));
+				fitnessValueList.Add((GenerationID, genome.GenomeID, genome.FitnessValue));
 			}
 			return fitnessValueList;
 		}
