@@ -23,25 +23,27 @@ namespace Urbanflow.src.backend.test_automater
 			IterationNumber = 50,
 			UserOptimizationParameters = new OptimizationParameters
 			{
-				Genome_RouteCount = 23,
-				Genome_HubNumberInRoute = 2,
+				Genome_RouteCount = 30,
+				Genome_HubNumberInRoute = 1,
 				Genome_AllowOneWayRoutes = true,
 
 				Fitness_RedundancyPercentParameter = 50,
 				Fitness_RouteLengthParameter = 18,
-				Fitness_MaximalAllowedChangeParameter = 1,
+				Fitness_MaximalAllowedChangeParameter = 2,
 				Fitness_FleetCapacityParameter = 100,
 				Fitness_PreferedWaitingMinutesParameter = 30
 			}
 		};
 
 		private Workflow workflow;
+		public List<(string, int, RunResults)> NetworkRunResults = [];
 		public List<(string, int, RunResults)> NewWayRunResults = [];
 		public List<(string, int, RunResults)> OldWayRunResults = [];
 
 
 		public void RunGeneticAlgorithm() {
 			SetupWorkFlow();
+			CheckOriginalNetwork();
 
 			Console.WriteLine($"\n\n--------------------------------------------------------------\n" +
 							  $"   Starting tests, running {TestIterations} iterations...\n" +
@@ -70,6 +72,7 @@ namespace Urbanflow.src.backend.test_automater
 			Console.WriteLine("\n\n ===== Running tests finished ===== ");
 
 			ExportRunResultsToExcel(SaveFolder, WorkflowName.Replace(':', '-'));
+			Console.WriteLine();
 		}
 
 
@@ -113,6 +116,7 @@ namespace Urbanflow.src.backend.test_automater
 			// 1. Create Headers
 			worksheet.Cell(1, 1).Value = "Iteration";
 			worksheet.Cell(1, 2).Value = "Generation Number";
+			worksheet.Cell(1, 2).Value = "Genome Number";
 			worksheet.Cell(1, 3).Value = "Fitness Value";
 			worksheet.Cell(1, 4).Value = "Type";
 
@@ -141,12 +145,31 @@ namespace Urbanflow.src.backend.test_automater
 			}
 
 			// 3. Populate Data
+			ProcessList(NetworkRunResults, "network");
 			ProcessList(OldWayRunResults, "old");
 			ProcessList(NewWayRunResults, "new");
 
 			// 4. Final touches: Auto-fit columns and save
 			worksheet.Columns().AdjustToContents();
 			workbook.SaveAs(fullPath);
+		}
+
+		private void CheckOriginalNetwork()
+		{
+			Genome g = workflow.GetGenomeForNetwork(settings.UserOptimizationParameters);
+			List<int> routeLengths = [];
+			foreach(var route in g.MutableRoutes)
+			{
+				routeLengths.Add(route.OnRoute.Count);
+				routeLengths.Add(route.BackRoute.Count);
+			}
+			var avg =  routeLengths.Average();
+			var min = routeLengths.Min();
+			var max = routeLengths.Max();
+			
+			RunResults runRes = new([g], [(g.GenerationID, g.GenomeID, g.FitnessValue)], "Network fitness value");
+			NetworkRunResults.Add(("Network run result",0,runRes));
+			Console.WriteLine();
 		}
 	}
 }

@@ -59,7 +59,21 @@ namespace Urbanflow.src.backend.models.ga
 			FitnessValue = fitnessResult.Value;
 		}
 
-		
+		//Empty initialization
+		public Genome(int id, int generation, in List<GenomeRoute> routes, in OptimizationParameters parameters, in NetworkInformation network, string step)
+		{
+			GenomeID = id;
+			GenerationID = generation;
+			MutableRoutes = routes;
+			var fitnessResult = CalculateFitnessValue(parameters, network, step);
+			if (fitnessResult.IsFailure)
+			{
+				throw new Exception($"Genome (ID: {id}, Generation: {GenerationID}) initialization failed at calculating fitness value, error: {fitnessResult.Error}");
+			}
+			FitnessValue = fitnessResult.Value;
+		}
+
+
 		//Crossing
 		public Genome(int id, int generation, in Genome parent1, in Genome parent2, in OptimizationParameters parameters, in NetworkInformation network, string step)
 		{
@@ -809,6 +823,7 @@ namespace Urbanflow.src.backend.models.ga
 			int loopCount = 0;
 			int terminalMistakes = 0;
 			double lengthDeviation = 0;
+			double deviationThreshold = 0.5;
 
 			double invTargetLength = 1.0 / parameters.Fitness_RouteLengthParameter;
 
@@ -836,14 +851,19 @@ namespace Urbanflow.src.backend.models.ga
 
 				visited.Clear();
 
-				foreach (var stop in backRoute)
+				if (backRoute.Count > 0)
 				{
-					if (!visited.Add(stop)) loopCount++;
-					unmetStops.Remove(stop);
-					routeStops.Add(stop);
+					foreach (var stop in backRoute)
+					{
+						if (!visited.Add(stop)) loopCount++;
+						unmetStops.Remove(stop);
+						routeStops.Add(stop);
 
-					if (hubDegrees.TryGetValue(stop, out int value)) hubDegrees[stop] = ++value;
+						if (hubDegrees.TryGetValue(stop, out int value)) hubDegrees[stop] = ++value;
+					}
 				}
+
+				visited.Clear();
 
 				if(backRoute.Count > 0)
 				{
@@ -853,8 +873,8 @@ namespace Urbanflow.src.backend.models.ga
 					var fromBack = backRoute[0];
 					var toBack = backRoute[^1];
 
-					if (fromBack != toOn) terminalMistakes++;
-					if (fromOn != toBack) terminalMistakes++;
+					if (!fromBack.Equals(toOn)) terminalMistakes++;
+					if (!fromOn.Equals(toBack)) terminalMistakes++;
 
 					if (!terminals.Contains(fromOn)) terminalMistakes++;
 					if (!terminals.Contains(toOn)) terminalMistakes++;
@@ -887,14 +907,15 @@ namespace Urbanflow.src.backend.models.ga
 
 				// length deviation
 				double onDev = Math.Abs(onRoute.Count * invTargetLength - 1);
-				if (onDev > 0.35) lengthDeviation += onDev;
+				if (onDev > deviationThreshold) lengthDeviation += onDev;
 
 				double backDev = Math.Abs(backRoute.Count * invTargetLength - 1);
-				if (backDev > 0.35) lengthDeviation += backDev;
+				if (backDev > deviationThreshold) lengthDeviation += backDev;
 			}
 
 			// redundancy check
 			int redundantPairs = 0;
+			double threshold = (double)parameters.Fitness_RedundancyPercentParameter / (double)100;
 
 			for (int i = 0; i < routeStopSets.Count; i++)
 			{
@@ -904,15 +925,32 @@ namespace Urbanflow.src.backend.models.ga
 				{
 					var setB = routeStopSets[j];
 
-					int match = 0;
+					int currentStreak = 0;
+					int previousStreak = 0;
+
 					foreach (var stop in setA)
+					{
 						if (setB.Contains(stop))
-							match++;
+						{
+							currentStreak++;
+						}
+						else
+						{
+							if (currentStreak > previousStreak)
+							{
+								previousStreak = currentStreak;
+							}
+							currentStreak = 0;
+						}
+					}
 
-					double perc = (double)(match * 2) / (setA.Count + setB.Count);
+					double matchPercent = (double)currentStreak / (((double)setA.Count + (double)setB.Count)/2);
 
-					if (perc > parameters.Fitness_RedundancyPercentParameter/100)
+					// check streak at the end
+					if (matchPercent > threshold)
+					{
 						redundantPairs++;
+					}
 				}
 			}
 
@@ -976,18 +1014,19 @@ namespace Urbanflow.src.backend.models.ga
 
 			UnMetStopPercentage = (double)unmetStops.Count / (double)network.AllStops.Count;
 			UnMetStopList = unmetStops.ToList();
+			
 
 			double score =
 				  redundantPairs * 10
 				+ loopCount * 100
 				+ terminalMistakes * 1000
-				+ unmetStops.Count * 10000
+				+ unmetStops.Count * 1000
 				+ (lengthDeviation == 0 ? 0 : lengthDeviation / routeCount * 2)
 				+ districtConnections / allConnections
 				+ hubGini
 				+ terminalDeviation;
 
-			return Result<double>.Success(score);
+			 return Result<double>.Success(score);
 		}
 	}
 }

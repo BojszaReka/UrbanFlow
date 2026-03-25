@@ -119,7 +119,7 @@ namespace Urbanflow.src.backend.services
 			}
 			networkInformation.StopConnectivityMatrix = matrixResult.Value;
 
-			var staticRouteResult = feed.GatherStaticRoutes();
+			var staticRouteResult = feed.GatherRoutesAsGenomeRoute(true);
 			if (staticRouteResult.IsFailure)
 			{
 				return Result<NetworkInformation>.Failure("Extracting static routes failed: " + staticRouteResult.Error);

@@ -209,5 +209,29 @@ namespace Urbanflow.src.backend.models
 			runResults.Add(result.Value);
 			return runResults;
 		}
+
+		internal Genome GetGenomeForNetwork(in OptimizationParameters parameters)
+		{
+			var result = GtfsFeed.ExtractNetworkAsGenome(networkInformation, parameters);
+			if (result.IsFailure) { 
+				throw new Exception(result.Error);
+			}
+			//var unmetstops = result.Value.UnMetStopList;
+
+			//foreach (var stop in unmetstops) { 
+			//	networkInformation.AllStops.Remove(stop);
+			//	networkInformation.GenericStops.Remove(stop);
+			//	networkInformation.Hubs.Remove(stop);
+			//	networkInformation.Terminals.Remove(stop);
+			//}
+
+			//result = GtfsFeed.ExtractNetworkAsGenome(networkInformation, parameters);
+			//if (result.IsFailure)
+			//{
+			//	throw new Exception(result.Error);
+			//}
+
+			return result.Value;
+		}
 	}
 }

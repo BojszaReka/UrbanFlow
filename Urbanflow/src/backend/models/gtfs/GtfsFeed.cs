@@ -777,7 +777,21 @@ namespace Urbanflow.src.backend.models.gtfs
 			return Result<List<(Guid, ENodeType)>>.Success(classifiedStops);
 		}
 
-		internal Result<List<GenomeRoute>> GatherStaticRoutes()
+		public Result<Genome> ExtractNetworkAsGenome(in NetworkInformation network, in OptimizationParameters parameters)
+		{
+			var genomeListResult = GatherRoutesAsGenomeRoute(false);
+			if (genomeListResult.IsFailure)
+			{
+				return Result<Genome>.Failure("Extracting routes as genomeroutes failed, because: " + genomeListResult.Error);
+			}
+			var genomeList = genomeListResult.Value;
+
+			Genome g = new(-1 ,-1 , genomeList, parameters, network, "route");
+			return Result<Genome>.Success(g);
+
+		}
+
+		internal Result<List<GenomeRoute>> GatherRoutesAsGenomeRoute(bool isStatic)
 		{
 			if (Routes == null || Routes.Count == 0)
 				return Result<List<GenomeRoute>>.Failure("No routes found in the feed");
@@ -789,8 +803,6 @@ namespace Urbanflow.src.backend.models.gtfs
 				.ToDictionary(g => g.Key, g => g.ToList());
 
 			var stopTimesByTrip = StopTimes
-				.Where(s => s.PickupType == GTFS.Entities.Enumerations.PickupType.Regular &&
-							s.DropOffType == GTFS.Entities.Enumerations.DropOffType.NoPickup)
 				.GroupBy(s => s.TripId)
 				.ToDictionary(g => g.Key, g => g.OrderBy(st => st.StopSequence).ToList());
 
@@ -798,18 +810,20 @@ namespace Urbanflow.src.backend.models.gtfs
 
 			foreach (var route in Routes)
 			{
-				if (!route.IsStatic)
+				if (isStatic && !route.IsStatic)
 					continue;
 
 				if (!tripsByRoute.TryGetValue(route.RouteId, out var routeTrips))
-					return Result<List<GenomeRoute>>.Failure($"No trips for route ({route.ShortName}, {route.LongName}), route id: {route.Id}");
+					//return Result<List<GenomeRoute>>.Failure($"No trips for route ({route.ShortName}, {route.LongName}), route id: {route.Id}");
+					continue;
 
 				var onTrips = routeTrips
 					.Where(t => t.Direction == GTFS.Entities.Enumerations.DirectionType.OneDirection)
 					.ToList();
 
 				if (onTrips.Count == 0)
-					return Result<List<GenomeRoute>>.Failure($"No ON direction trips for route ({route.ShortName}, {route.LongName}), route id: {route.Id}");
+					//return Result<List<GenomeRoute>>.Failure($"No ON direction trips for route ({route.ShortName}, {route.LongName}), route id: {route.Id}");
+					continue;
 
 				var backTrips = routeTrips
 					.Where(t => t.Direction == GTFS.Entities.Enumerations.DirectionType.OppositeDirection)
@@ -849,7 +863,7 @@ namespace Urbanflow.src.backend.models.gtfs
 						foreach (var st in tripStopTimes)
 						{
 							if (stopsById.TryGetValue(st.StopId, out var stop))
-								onRoute.Add(stop.Id);
+								onRoute.Add(GetParentStopOfStop(stop.Id).Id);
 						}
 					}
 				}
@@ -888,7 +902,7 @@ namespace Urbanflow.src.backend.models.gtfs
 							foreach (var st in tripStopTimes)
 							{
 								if (stopsById.TryGetValue(st.StopId, out var stop))
-									backRoute.Add(stop.Id);
+									backRoute.Add(GetParentStopOfStop(stop.Id).Id);
 							}
 						}
 					}
@@ -922,14 +936,14 @@ namespace Urbanflow.src.backend.models.gtfs
 		{
 			minute = 0;
 
-			if (string.IsNullOrEmpty(time) || time.Length < 5)
+			if (string.IsNullOrWhiteSpace(time))
 				return false;
 
-			if (!char.IsDigit(time[3]) || !char.IsDigit(time[4]))
+			var parts = time.Split(':');
+			if (parts.Length < 2)
 				return false;
 
-			minute = (time[3] - '0') * 10 + (time[4] - '0');
-			return true;
+			return int.TryParse(parts[1], out minute);
 		}
 
 		internal Result<Dictionary<Guid, List<Guid>>> CollectStopIdsGroupedByDistrict()
@@ -1094,5 +1108,7 @@ namespace Urbanflow.src.backend.models.gtfs
 				await transaction.DisposeAsync();
 			}
 		}
+
+		
 	}
 }
