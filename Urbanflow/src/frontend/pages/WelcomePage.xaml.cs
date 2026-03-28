@@ -118,10 +118,10 @@ namespace Urbanflow.src.frontend.pages
 			}
 		}
 
-		private void runtest()
+		private async Task runtest()
 		{
 			Main m = new Main();
-			m.RunGeneticAlgorithm();
+			await m.RunGeneticAlgorithm();
 		}
 	}
 }

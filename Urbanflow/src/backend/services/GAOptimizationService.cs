@@ -35,12 +35,20 @@ namespace Urbanflow.src.backend.services
 			catch (Exception e) {
 				throw new Exception("Initializing genomes failed because: "+e.Message);
 			}
-			
+
+			//generate the new population with the best 50% of the previous
+			var newPopulation_result = currentPopulation.ExtractNextPopulationNewWay(OptimizationSettings);
+			if (newPopulation_result.IsFailure)
+			{
+				return Result<RunResults>.Failure(newPopulation_result.Error);
+			}
+			Population previousPopulation = currentPopulation;
+			currentPopulation = newPopulation_result.Value;
 
 			foreach (var step in steps) {
 				for (int i = 0; i < OptimizationSettings.IterationNumber; i++)
 				{
-					result = currentPopulation.PopulateByCreatingNewGenomesNewWay(OptimizationSettings, NetworkInformation, step);
+					result = currentPopulation.PopulateByCreatingNewGenomesNewWay(previousPopulation, OptimizationSettings, NetworkInformation, step);
 					if (result.IsFailure)
 					{
 						return Result<RunResults>.Failure(result.Error);
@@ -49,11 +57,12 @@ namespace Urbanflow.src.backend.services
 					//Generations.Add(currentPopulation);
 					FitnessValuesPerGenerations.AddRange(currentPopulation.GatherFitnessValues());
 
-					var newPopulation_result = currentPopulation.ExtractNextPopulationNewWay(OptimizationSettings);
+					newPopulation_result = currentPopulation.ExtractNextPopulationNewWay(OptimizationSettings);
 					if (newPopulation_result.IsFailure)
 					{
 						return Result<RunResults>.Failure(newPopulation_result.Error);
 					}
+					previousPopulation = currentPopulation;
 					currentPopulation = newPopulation_result.Value;
 				}
 				FitnessValuesPerGenerations.AddRange(currentPopulation.GatherFitnessValues());

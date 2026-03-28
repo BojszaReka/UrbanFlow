@@ -100,38 +100,40 @@ namespace Urbanflow.src.backend.services
 
 		public Result<NetworkInformation> ExtractNetworkInformationForGA(in GtfsFeed feed)
 		{
-			NetworkInformation networkInformation = new();
+			
 
 			var classifiedResult = feed.ExtractClassifiedStops();
 			if (classifiedResult.IsFailure)
 			{
 				return Result<NetworkInformation>.Failure("Extracting classified stops failed: " + classifiedResult.Error);
 			}
-			networkInformation.Terminals = [.. classifiedResult.Value.Where(x => x.Item2 == ENodeType.Terminal).Select(x => x.Item1)];
-			networkInformation.Hubs = [.. classifiedResult.Value.Where(x => x.Item2 == ENodeType.Junction).Select(x => x.Item1)];
-			networkInformation.GenericStops = [.. classifiedResult.Value.Where(x => x.Item2 == ENodeType.Default).Select(x => x.Item1)];
-			networkInformation.AllStops = [.. classifiedResult.Value.Select(x => x.Item1)];
+			List<Guid> terminals = [.. classifiedResult.Value.Where(x => x.Item2 == ENodeType.Terminal).Select(x => x.Item1)];
+			List<Guid> hubs = [.. classifiedResult.Value.Where(x => x.Item2 == ENodeType.Junction).Select(x => x.Item1)];
+			List<Guid> genStops = [.. classifiedResult.Value.Where(x => x.Item2 == ENodeType.Default).Select(x => x.Item1)];
+			List<Guid> allStops = [.. classifiedResult.Value.Select(x => x.Item1)];
 
 			var matrixResult = feed.ExtractStopConnectivityMatrix();
 			if (matrixResult.IsFailure)
 			{
 				return Result<NetworkInformation>.Failure("Extracting connectivity matrix failed: " + matrixResult.Error);
 			}
-			networkInformation.StopConnectivityMatrix = matrixResult.Value;
+			var matrix = matrixResult.Value;
 
 			var staticRouteResult = feed.GatherRoutesAsGenomeRoute(true);
 			if (staticRouteResult.IsFailure)
 			{
 				return Result<NetworkInformation>.Failure("Extracting static routes failed: " + staticRouteResult.Error);
 			}
-			networkInformation.StaticRoutes = staticRouteResult.Value;
+			var staticRoutes = staticRouteResult.Value;
 
 			var districtResult = feed.CollectStopIdsGroupedByDistrict();
 			if (districtResult.IsFailure)
 			{
 				return Result<NetworkInformation>.Failure("Extracting districts failed: "+districtResult.Error);
 			}
-			networkInformation.Districts = districtResult.Value;
+			var districts = districtResult.Value;
+
+			NetworkInformation networkInformation = new(terminals, hubs, genStops, allStops, matrix, staticRoutes, districts);
 
 			return Result<NetworkInformation>.Success(networkInformation);
 		}

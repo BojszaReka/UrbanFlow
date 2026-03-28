@@ -49,8 +49,7 @@ namespace Urbanflow.src.backend.models.gtfs
 			UpdateFromDatabase(gtfsFeedId);
 			TryLoadingDistricts();
 		}
-
-		
+				
 
 		public GtfsFeed(in GTFSFeed feed)
 		{
@@ -1023,12 +1022,10 @@ namespace Urbanflow.src.backend.models.gtfs
 			catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
-				await db.DisposeAsync();
 				throw new Exception("" + ex.InnerException);
 			}
 			finally
 			{
-				await db.DisposeAsync();
 				await transaction.DisposeAsync();
 			}
 		}
@@ -1057,12 +1054,10 @@ namespace Urbanflow.src.backend.models.gtfs
 			catch (Exception ex)
 			{
 				await transaction.RollbackAsync();
-				await db.DisposeAsync();
 				throw new Exception("" + ex.InnerException);
 			}
 			finally
 			{
-				await db.DisposeAsync();
 				await transaction.DisposeAsync();
 			}
 		}
@@ -1073,11 +1068,10 @@ namespace Urbanflow.src.backend.models.gtfs
 			TryLoadingStopsTypes(context);
 		}
 
-		private void TryLoadingStopsTypes(DatabaseContext db)
+		public void TryLoadingStopsTypes(DatabaseContext db)
 		{
 			AddNodeTypesToStops(VeszpremDistrict.specificStops, db);
 			this.Stops = [.. db.Stops.Where(a => a.GtfsFeedId == Id)];
-			db.DisposeAsync();
 		}
 
 		private async void AddNodeTypesToStops(List<(ENodeType, List<string>)> specificStops, DatabaseContext db)

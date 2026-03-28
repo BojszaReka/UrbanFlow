@@ -35,8 +35,6 @@ namespace Urbanflow.src.backend.models
 
 		[NotMapped]
 		private readonly GtfsManagerService gtfsManager;
-		[NotMapped]
-		private readonly GraphManagerService graphManager;
 
 		[NotMapped]
 		private NetworkInformation networkInformation;
@@ -58,7 +56,6 @@ namespace Urbanflow.src.backend.models
 			GtfsFeed = new GtfsFeed(GtfsFeedId);
 
 			gtfsManager = new GtfsManagerService();
-			graphManager = new GraphManagerService();
 		}
 
 		public Workflow(string name, Guid cityId, string description, Guid feedid)
@@ -74,7 +71,6 @@ namespace Urbanflow.src.backend.models
 			GtfsFeed = new GtfsFeed(GtfsFeedId);
 
 			gtfsManager = new GtfsManagerService();
-			graphManager = new GraphManagerService();
 		}
 		 
 		public Workflow(Guid workflowId)
@@ -101,7 +97,6 @@ namespace Urbanflow.src.backend.models
 			GtfsFeed = new GtfsFeed(GtfsFeedId);
 
 			gtfsManager = new GtfsManagerService();
-			graphManager = new GraphManagerService();
 		}
 
 		internal Result<Graph> GetNetWorkGraphData()
@@ -187,7 +182,7 @@ namespace Urbanflow.src.backend.models
 			networkInformation = networkInfoResult.Value;
 		}
 
-		internal void CreateGAOptimizationService( in OptimizationSettings settings)
+		internal void CreateGAOptimizationService(in OptimizationSettings settings)
 		{
 			gaOptimizationService = new GAOptimizationService(networkInformation, settings);
 		}
@@ -232,6 +227,11 @@ namespace Urbanflow.src.backend.models
 			//}
 
 			return result.Value;
+		}
+
+		internal async Task SetStopTypes()
+		{
+			GtfsFeed.TryLoadingStopsTypes();
 		}
 	}
 }

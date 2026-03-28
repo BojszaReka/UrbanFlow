@@ -14,15 +14,16 @@ namespace Urbanflow.src.backend.models.ga
 	public class Genome
 	{
 		public int GenomeID { get;  }
-		public int GenerationID { get; } //genome got created in the N-th generation
+		public int GenerationID { get; set; } //genome got created in the N-th generation
 		public List<GenomeRoute> MutableRoutes { get; } = [];
 		public double FitnessValue { get; private set; }
 
 		//helper values
 		public List<int> Parents { get; } = [];
 		public List<GenomeRoute> AllRoutes { get; private set; }
-		public double UnMetStopPercentage = 0.0;
-		public List<Guid> UnMetStopList = [];
+
+		public double UnMetStopPercentage { get; private set; } = 0.0; 
+		public List<Guid> UnMetStopList { get; private set; } = [];
 
 
 		//initialization
@@ -31,25 +32,41 @@ namespace Urbanflow.src.backend.models.ga
 			GenomeID = id;
 			GenerationID = generation;
 			int neededRoutes = parameters.Genome_RouteCount - network.StaticRoutes.Count;
+			MutableRoutes.Capacity = Math.Max(MutableRoutes.Capacity, neededRoutes);
 
-			int i = 0;
+			if (neededRoutes <= 0)
+			{
+				FitnessValue = -1;
+				return;
+			}
+
+			int created = 0;
+			int targetFailures = parameters.Genome_RouteCount;
 			int failures = 0;
-			Result<GenomeRoute> routeInitializationResult;
-			while (i < neededRoutes && failures<parameters.Genome_RouteCount*2) {
-				routeInitializationResult = GAUtil.PerformRouteInitialization(network, parameters);
-				if (routeInitializationResult.IsSuccess)
+			while (created < neededRoutes && failures < targetFailures)
+			{
+				var result = GAUtil.PerformRouteInitialization(network, parameters);
+
+				if (result.IsSuccess)
 				{
-					MutableRoutes.Add(routeInitializationResult.Value);
-					i++;				
+					MutableRoutes.Add(result.Value);
+					created++;
 				}
 				else
 				{
 					failures++;
-				}				
+				}
 			}
-			if(MutableRoutes.Count < neededRoutes)
+			if (failures >= targetFailures)
 			{
-				throw new Exception($"Genome (ID: {id}, Generation: {GenerationID}) initialization failed at creating new routes multiple times, not enough routes got created");
+				throw new Exception("Genome initialization failed, because the failures exceeded the allowed threshold");
+			}
+
+			if (created < neededRoutes)
+			{
+				throw new Exception(
+					$"Genome initialization failed: could not create enough routes. " +
+					$"Created {created}/{neededRoutes}, failures {failures}");
 			}
 			var fitnessResult = CalculateFitnessValue(parameters, network, "route");
 			if (fitnessResult.IsFailure)
@@ -81,36 +98,55 @@ namespace Urbanflow.src.backend.models.ga
 			GenerationID = generation;
 			Parents.Add(parent1.GenomeID);
 			Parents.Add(parent2.GenomeID);
-			switch (step)
+
+			var p1Routes = parent1.MutableRoutes;
+			var p2Routes = parent2.MutableRoutes;
+
+			int routeCount = parameters.Genome_RouteCount;
+
+			bool IsRouteCrossing = step == "route";
+
+			if (IsRouteCrossing)
 			{
-				case "route":
-					for (int i = 0; i < parameters.Genome_RouteCount; i++)
+				for (int i = 0; i < routeCount; i++)
+				{
+					var r1 = p1Routes[i];
+					var r2 = p2Routes[i];
+
+					Result<GenomeRoute> crossoverResult;
+					int tryCount = 0;
+					do
 					{
-						var crossoverResult = GAUtil.PerformCrossover(parent1.MutableRoutes[i], parent2.MutableRoutes[i], network, parameters);
-						int trycount = 0;
-						while (crossoverResult.IsFailure && trycount < 4)
-						{
-							crossoverResult = GAUtil.PerformCrossover(parent1.MutableRoutes[i], parent2.MutableRoutes[i], network, parameters);
-							trycount++;
-						}
-						if (crossoverResult.IsFailure)
-						{
-							throw new Exception($"Genome (ID: {id}, Generation: {GenerationID}) route crossing failed when performing crossover, the error remained after several tries: {crossoverResult.Error}");
-						}
-						MutableRoutes.Add(crossoverResult.Value);
+						crossoverResult = GAUtil.PerformCrossover(r1, r2, network, parameters);
+						tryCount++;
 					}
-					break;
-				case "time":
-					for (int i = 0; i < parameters.Genome_RouteCount; i++)
+					while (crossoverResult.IsFailure && tryCount < 4);
+
+					if (crossoverResult.IsFailure)
 					{
-						int s1Child = Random.Shared.Next(2) == 0 ? parent1.MutableRoutes[i].OnStartTime : parent2.MutableRoutes[i].OnStartTime;
-						int s2Child = Random.Shared.Next(2) == 0 ? parent1.MutableRoutes[i].BackStartTime : parent2.MutableRoutes[i].BackStartTime;
-						int fChild = Random.Shared.Next(2) == 0 ? parent1.MutableRoutes[i].Headway : parent2.MutableRoutes[i].Headway;
-						MutableRoutes.Add(new GenomeRoute(parent1.MutableRoutes[i].OnRoute, s1Child, parent1.MutableRoutes[i].BackRoute, s2Child, fChild));
+						throw new Exception(
+							$"Genome (ID: {id}, Generation: {GenerationID}) crossover failed after retries: {crossoverResult.Error}");
 					}
-					break;
-				default: break;
+
+					MutableRoutes.Add(crossoverResult.Value);
+				}
 			}
+			else
+			{
+				var random = Random.Shared;
+
+				for (int i = 0; i < parameters.Genome_RouteCount; i++)
+				{
+					var r1 = p1Routes[i];
+					var r2 = p2Routes[i];
+
+					int s1Child = random.Next(2) == 0 ? r1.OnStartTime : r2.OnStartTime;
+					int s2Child = random.Next(2) == 0 ? r1.BackStartTime : r2.BackStartTime;
+					int fChild = random.Next(2) == 0 ? r1.Headway : r2.Headway;
+					MutableRoutes.Add(new GenomeRoute(r1.OnRoute, s1Child, r1.BackRoute, s2Child, fChild));
+				}
+			}
+
 			var fitnessResult = CalculateFitnessValue(parameters, network, step);
 			if (fitnessResult.IsFailure)
 			{
@@ -126,41 +162,61 @@ namespace Urbanflow.src.backend.models.ga
 			GenomeID = id;
 			GenerationID = generation;
 			Parents.Add(parent.GenomeID);
-			switch (step)
+
+			var parentRoutes = parent.MutableRoutes;
+			var unMetStops = parent.UnMetStopList;
+			int routeCount = parameters.Genome_RouteCount;
+
+			var random = Random.Shared;
+
+			bool isRouteMutation = step == "route";
+
+			if (isRouteMutation)
 			{
-				case "route": 
-					for (int i = 0; i < parameters.Genome_RouteCount; i++)
-					{
-						var mutationResult = GAUtil.PerformRouteMutation(parent.MutableRoutes[i], parent.UnMetStopList, network, parameters);
-						int trycount = 0;
-						while (mutationResult.IsFailure)
-						{
-							mutationResult = GAUtil.PerformRouteMutation(parent.MutableRoutes[i], parent.UnMetStopList, network, parameters);
-							trycount++;
-						}
-						if (mutationResult.IsFailure)
-						{
-							throw new Exception($"Genome (ID: {id}, Generation: {GenerationID}) route crossing failed when performing crossover, the error remained after several tries: {mutationResult.Error}");
-						}
-						MutableRoutes.Add(mutationResult.Value);
-					}
-					break;
-					
-				case "time":
-					for (int i = 0;	i< parameters.Genome_RouteCount; i++)
-					{
-						int uS = Random.Shared.Next(-30, 31);
-						int uF = Random.Shared.Next(5, 31);
+				for (int i = 0; i < routeCount; i++)
+				{
+					var baseRoute = parentRoutes[i];
 
-						int newS1 = (parent.MutableRoutes[i].OnStartTime + uS + 60) % 60;
-						int newS2 = (parent.MutableRoutes[i].BackStartTime + uS + 60) % 60;
-						int newF = Math.Clamp(parent.MutableRoutes[i].Headway + (Random.Shared.Next(2) == 0 ? uF : -uF), 5, 60);
+					Result<GenomeRoute> mutationResult;
+					int tryCount = 0;
 
-						MutableRoutes.Add(new GenomeRoute(parent.MutableRoutes[i].OnRoute, newS1, parent.MutableRoutes[i].BackRoute, newS2, newF));
+					do
+					{
+						mutationResult = GAUtil.PerformRouteMutation(
+							baseRoute,
+							unMetStops,
+							network,
+							parameters);
+
+						tryCount++;
 					}
-					
-					break;
-				default: break;
+					while (mutationResult.IsFailure && tryCount < 4);
+
+					if (mutationResult.IsFailure)
+					{
+						throw new Exception(
+							$"Genome (ID: {id}, Generation: {GenerationID}) mutation failed after retries: {mutationResult.Error}");
+					}
+
+					MutableRoutes.Add(mutationResult.Value);
+				}
+			}
+			else
+			{
+				for (int i = 0; i < parameters.Genome_RouteCount; i++)
+				{
+					var r = parentRoutes[i];
+
+					int uS = random.Next(-30, 31);
+					int uF = random.Next(5, 31);
+
+					int newS1 = (r.OnStartTime + uS + 60) % 60;
+					int newS2 = (r.BackStartTime + uS + 60) % 60;
+
+					int newF = Math.Clamp(r.Headway + (random.Next(2) == 0 ? uF : -uF), 5, 60);
+
+					MutableRoutes.Add(new GenomeRoute(r.OnRoute, newS1, r.BackRoute, newS2, newF));
+				}
 			}
 			var fitnessResult = CalculateFitnessValue(parameters, network, step);
 			if (fitnessResult.IsFailure)
@@ -189,47 +245,6 @@ namespace Urbanflow.src.backend.models.ga
 				switch (step)
 				{
 					case "route":
-						////Soft Constraint: Terminal distribution between routes
-						//result = CalculateSoftConstraint_Route_Terminal(network);
-						//if (result.IsFailure) return result;
-						//fitnessValue += result.Value;
-
-						////Soft Constraint: Degree distribution betweeen stops
-						//result = CalculateSoftConstraint_Route_Hub(network);
-						//if (result.IsFailure) return result;
-						//fitnessValue += result.Value;
-
-						////Soft Constraint: Route distribution between districts
-						//result = CalculateSoftConstraint_Route_District(network);
-						//if (result.IsFailure) return result;
-						//fitnessValue += result.Value;
-
-						////Soft Constraint: Routes are the required length
-						//result = CalculateSoftConstraint_Route_Length(parameters);
-						//if (result.IsFailure) return result;
-						//fitnessValue += result.Value;					
-
-						////Hard Constraint: Are all stops included in the network
-						//result = CalculateHardConstraint_Route_Coverage(network);
-						//if (result.IsFailure) return result;
-						//fitnessValue += result.Value;
-
-						////Hard Constraint: Are the first and last stops terminals
-						//result = CalculateHardConstraint_Route_Terminal(network);
-						//if (result.IsFailure) return result;
-						//fitnessValue += result.Value;
-
-						////Hard Constraint: Are the routes loop free
-						//result = CalculateHardConstraint_Route_Loop();
-						//if (result.IsFailure) return result;
-						//fitnessValue += result.Value;
-
-						////Hard Constraint: Redudancy of routes over allowed treshold
-						//result = CalculateHardConstraint_Route_Redundancy(parameters);
-						//if (result.IsFailure) return result;
-						//fitnessValue += result.Value;
-
-						//All of the above included in one:
 						result = CalculateRouteFitness(parameters, network);
 						if (result.IsFailure) return result;
 						fitnessValue += result.Value;
@@ -267,7 +282,7 @@ namespace Urbanflow.src.backend.models.ga
 				return Result<double>.Success(fitnessValue);
 			}catch(Exception ex)
 			{
-				throw new Exception("Fitness value calculatipn failed: "+ex.Message);
+				throw new Exception("Fitness value calculation failed: "+ex.Message);
 			}
 		}
 
@@ -296,7 +311,6 @@ namespace Urbanflow.src.backend.models.ga
 			//Hard Constraint: Transfer count over allowed treshold
 			var routes = AllRoutes;
 
-			// Collect all unique stops per route (direction-independent)
 			var routeStops = new List<HashSet<Guid>>(routes.Count);
 			for (int i = 0; i < routes.Count; i++)
 			{
@@ -317,7 +331,6 @@ namespace Urbanflow.src.backend.models.ga
 				routeStops.Add(stopSet);
 			}
 
-			// Invert: stop -> list of route indices containing that stop
 			var stopToRoutes = new Dictionary<Guid, List<int>>();
 			for (int routeIndex = 0; routeIndex < routeStops.Count; routeIndex++)
 			{
@@ -333,7 +346,6 @@ namespace Urbanflow.src.backend.models.ga
 				}
 			}
 
-			// Build undirected route graph
 			var adjacency = new HashSet<int>[routes.Count];
 			for (int i = 0; i < adjacency.Length; i++)
 				adjacency[i] = new HashSet<int>();
@@ -356,8 +368,6 @@ namespace Urbanflow.src.backend.models.ga
 				}
 			}
 
-			// BFS from every route to compute graph diameter
-			// If disconnected, transfers are effectively over the limit.
 			var distance = new int[routes.Count];
 			var queue = new Queue<int>(routes.Count);
 
@@ -405,9 +415,10 @@ namespace Urbanflow.src.backend.models.ga
 
 			// max transfers = diameter in edges
 			// Hard constraint: 100 if over allowed threshold, otherwise 0
+			int changeCount = parameters.Fitness_MaximalAllowedChangeParameter;
 			double penalty = disconnected ||
-							 maxShortestPathEdges > parameters.Fitness_MaximalAllowedChangeParameter
-				? 100d
+							 maxShortestPathEdges > changeCount
+				? 100 * (maxShortestPathEdges-changeCount)
 				: 0d;
 
 			return Result<double>.Success(penalty);
@@ -419,7 +430,6 @@ namespace Urbanflow.src.backend.models.ga
 			double alpha = 0.5;
 			double beta = 0.5;
 
-			// ---- STOP -> DISTRICT ----
 			var stopToDistrict = new Dictionary<Guid, Guid>();
 
 			foreach (var (id, list) in network.Districts)
@@ -428,7 +438,6 @@ namespace Urbanflow.src.backend.models.ga
 					stopToDistrict[stop] = id;
 			}
 
-			// ---- CONNECTIVITY FAST LOOKUP ----
 			var fastMatrix = new Dictionary<Guid, Dictionary<Guid, double>>(network.StopConnectivityMatrix.Count);
 
 			foreach (var (from, neighbors) in network.StopConnectivityMatrix)
@@ -440,7 +449,6 @@ namespace Urbanflow.src.backend.models.ga
 				fastMatrix[from] = dict;
 			}
 
-			// ---- AGGREGATION ----
 			double intraSum = 0, interSum = 0;
 			int intraCount = 0, interCount = 0;
 
@@ -450,7 +458,6 @@ namespace Urbanflow.src.backend.models.ga
 
 				foreach (var r in onback)
 				{
-					// ---- DISTRICT FIRST/LAST ----
 					var firstIndex = new Dictionary<Guid, int>();
 					var lastIndex = new Dictionary<Guid, int>();
 
@@ -467,7 +474,6 @@ namespace Urbanflow.src.backend.models.ga
 						lastIndex[d] = i;
 					}
 
-					// ---- INTRA ----
 					foreach (var d in firstIndex.Keys)
 					{
 						int start = firstIndex[d];
@@ -501,11 +507,10 @@ namespace Urbanflow.src.backend.models.ga
 						}
 					}
 
-					// ---- INTER ----
 					var districtsOrdered = firstIndex
 						.Select(kvp => (District: kvp.Key, First: kvp.Value, Last: lastIndex[kvp.Key]))
 						.OrderBy(x => x.First)
-						.ToArray(); // faster than List
+						.ToArray();
 
 					for (int i = 0; i < districtsOrdered.Length - 1; i++)
 					{
@@ -542,7 +547,6 @@ namespace Urbanflow.src.backend.models.ga
 				}
 			}
 
-			// ---- FINAL ----
 			double T_intra = intraCount > 0 ? intraSum / intraCount : 0;
 			double T_inter = interCount > 0 ? interSum / interCount : 0;
 
@@ -552,232 +556,6 @@ namespace Urbanflow.src.backend.models.ga
 			double result = alpha * intraScore + beta * interScore;
 
 			return Result<double>.Success(Math.Clamp(result, 0, 1));
-		}
-
-		private Result<double> CalculateHardConstraint_Route_Redundancy(in OptimizationParameters parameters)
-		{
-			int redundantPairCount = 0;
-			var routes = AllRoutes;
-
-			for (int i = 0; i < routes.Count; i++)
-			{
-				var routeA = routes[i].OnRoute;
-
-				for (int j = i + 1; j < routes.Count; j++)
-				{
-					var routeB = routes[j].OnRoute;
-
-					int matchingStopCount = 0;
-
-					foreach (var stop in routeA)
-						if (routeB.Contains(stop))
-							matchingStopCount++;
-
-					double percentage = (double)(matchingStopCount * 2) / (routeA.Count + routeB.Count);
-
-					if (percentage > parameters.Fitness_RedundancyPercentParameter)
-						redundantPairCount++;
-				}
-			}
-
-			return Result<double>.Success(redundantPairCount * 10);
-		}
-
-		private Result<double> CalculateHardConstraint_Route_Loop()
-		{
-			//Hard Constraint: Are the routes loop free
-			var loopCount = 0;
-			foreach (var route in AllRoutes)
-			{
-				var visited = new HashSet<Guid>();
-
-				foreach (var stop in route.OnRoute)
-				{
-					if (!visited.Add(stop))
-						loopCount++;
-				}
-
-				visited.Clear();
-
-				foreach (var stop in route.BackRoute)
-				{
-					if (!visited.Add(stop))
-						loopCount++;
-				}
-			}
-			return Result<double>.Success(loopCount * 100);
-		}
-
-		private Result<double> CalculateHardConstraint_Route_Terminal(in NetworkInformation network)
-		{
-			int mistakePoints = 0;
-			var terminals = network.Terminals;
-
-			foreach (var route in AllRoutes)
-			{
-				var onRoute = route.OnRoute;
-				var backRoute = route.BackRoute;
-
-				var fromOnRoute = onRoute[0];
-				var toOnRoute = onRoute[^1];
-				var fromBackRoute = backRoute[0];
-				var toBackRoute = backRoute[^1];
-
-				if (fromBackRoute != toOnRoute) mistakePoints++;
-				if (fromOnRoute != toBackRoute) mistakePoints++;
-
-				if (!terminals.Contains(fromOnRoute)) mistakePoints++;
-				if (!terminals.Contains(toOnRoute)) mistakePoints++;
-				if (!terminals.Contains(fromBackRoute)) mistakePoints++;
-				if (!terminals.Contains(toBackRoute)) mistakePoints++;
-			}
-
-			return Result<double>.Success(mistakePoints * 1000.0);
-		}
-
-		private Result<double> CalculateHardConstraint_Route_Coverage(in NetworkInformation network)
-		{
-			var unmetStops = new HashSet<Guid>(network.AllStops);
-
-			foreach (var route in AllRoutes)
-			{
-				foreach (var stop in route.OnRoute)
-					unmetStops.Remove(stop);
-
-				foreach (var stop in route.BackRoute)
-					unmetStops.Remove(stop);
-			}
-
-			return Result<double>.Success(unmetStops.Count * 1000.0);
-		}
-
-		private Result<double> CalculateSoftConstraint_Route_Length(in OptimizationParameters parameters)
-		{
-			double lengthDeviations = 0;
-			double invTargetLength = 1.0 / parameters.Fitness_RouteLengthParameter;
-
-			var routes = AllRoutes;
-
-			foreach (var route in routes)
-			{
-				double onDeviation = Math.Abs(route.OnRoute.Count * invTargetLength - 1);
-				if (onDeviation > 0.2)
-					lengthDeviations += onDeviation;
-
-				double backDeviation = Math.Abs(route.BackRoute.Count * invTargetLength - 1);
-				if (backDeviation > 0.2)
-					lengthDeviations += backDeviation;
-			}
-
-			if (lengthDeviations == 0)
-				return Result<double>.Success(0);
-
-			return Result<double>.Success(lengthDeviations / routes.Count * 2);
-		}
-
-		private Result<double> CalculateSoftConstraint_Route_District(in NetworkInformation network)
-		{
-			double districtConnections = 0;
-
-			var districts = network.Districts;
-			var routes = AllRoutes;
-
-			List<Guid> checkedDistricts = [];
-			foreach (var (id1, d1) in districts)
-			{
-				checkedDistricts.Add(id1);
-
-				foreach (var (id2, d2) in districts)
-				{
-					if (checkedDistricts.Contains(id2))
-					{
-						continue;
-					}
-
-					foreach (var route in routes)
-					{
-						bool on =
-							route.OnRoute.Any(d1.Contains) &&
-							route.OnRoute.Any(d2.Contains);
-
-						bool back =
-							route.BackRoute.Any(d1.Contains) &&
-							route.BackRoute.Any(d2.Contains);
-
-						if (on || back)
-							districtConnections++;
-					}
-				}
-			}
-
-			double allConnections = Factorial(districts.Count);
-
-			return Result<double>.Success(districtConnections / allConnections);
-		}
-
-		private Result<double> CalculateSoftConstraint_Route_Hub(in NetworkInformation network)
-		{
-			Dictionary<Guid, int> hubDegrees = [];
-			foreach(var hubId in network.Hubs)
-			{
-				hubDegrees[hubId] = 0;
-				foreach(var route in AllRoutes)
-				{
-					if(route.OnRoute.Contains(hubId) || route.BackRoute.Contains(hubId))
-					{
-						hubDegrees[hubId]++;
-					}
-				}
-			}
-
-			// fokszámok növekvő rendezése
-			var sorted = hubDegrees.OrderBy(h => h.Value).ToList();
-
-			double sumFi = sorted.Sum(s => s.Value);
-			if (sumFi == 0) return Result<Double>.Failure("Couldn't calculate hub degrees");
-
-			double weightedSum = 0.0;
-
-			for (int i = 0; i < network.Hubs.Count; i++)
-			{
-				weightedSum += i * sorted[i].Value;
-			}
-
-			double gini =
-				(2.0 * weightedSum) / (network.Hubs.Count * sumFi)
-				- (double)(network.Hubs.Count + 1) / network.Hubs.Count;
-
-			return Result<double>.Success(gini);
-		}
-
-		private Result<double> CalculateSoftConstraint_Route_Terminal(in NetworkInformation network)
-		{
-			//melyik megálló hányszor van érintve
-			Dictionary<Guid, int> terminalUsage = [];
-			foreach (var route in AllRoutes) {
-				terminalUsage[route.OnRoute[0]]++;
-				terminalUsage[route.OnRoute[^1]]++;
-			}
-
-			if (network.Terminals.Count <= 0) {
-				return Result<double>.Failure("There is no terminals defined for the network");
-			}
-			
-			//ideális átlagos terhelése:
-			double tAvg = 2.0 * AllRoutes.Count / network.Terminals.Count;
-
-			// szórás számítása
-			double sumSquares = 0.0;
-			foreach (var tv in terminalUsage)
-			{
-				sumSquares += Math.Pow(tv.Value - tAvg, 2);
-			}
-			double sigma = Math.Sqrt(sumSquares / network.Terminals.Count);
-
-			// relatív szórás
-			double relativeDeviation = sigma / tAvg;
-
-			return Result<double>.Success(Math.Min(1.0, relativeDeviation));
 		}
 
 
@@ -803,14 +581,13 @@ namespace Urbanflow.src.backend.models.ga
 		//Hard Constraint: Are the first and last stops terminals
 		//Hard Constraint: Are the routes loop free
 		//Hard Constraint: Redudancy of routes over allowed treshold
-
 		private Result<double> CalculateRouteFitness(in OptimizationParameters parameters, in NetworkInformation network)
 		{
 			var routes = AllRoutes;
 			int routeCount = routes.Count;
 
 			var terminals = network.Terminals;
-			var hubs = network.Hubs;
+			var hubsList = network.Hubs;
 
 			var unmetStops = new HashSet<Guid>(network.AllStops);
 			var visited = new HashSet<Guid>();
@@ -818,7 +595,7 @@ namespace Urbanflow.src.backend.models.ga
 			Dictionary<Guid, int> hubDegrees = [];
 			Dictionary<Guid, int> terminalUsage = [];
 
-			foreach (var h in hubs) hubDegrees[h] = 0;
+			foreach (var h in hubsList) hubDegrees[h] = 0;
 
 			int loopCount = 0;
 			int terminalMistakes = 0;
@@ -873,8 +650,10 @@ namespace Urbanflow.src.backend.models.ga
 					var fromBack = backRoute[0];
 					var toBack = backRoute[^1];
 
-					if (!fromBack.Equals(toOn)) terminalMistakes++;
-					if (!fromOn.Equals(toBack)) terminalMistakes++;
+					if (!fromBack.Equals(toOn)) 
+						terminalMistakes++;
+					if (!fromOn.Equals(toBack)) 
+						terminalMistakes++;
 
 					if (!terminals.Contains(fromOn)) terminalMistakes++;
 					if (!terminals.Contains(toOn)) terminalMistakes++;
@@ -1021,7 +800,7 @@ namespace Urbanflow.src.backend.models.ga
 				+ loopCount * 100
 				+ terminalMistakes * 1000
 				+ unmetStops.Count * 1000
-				+ (lengthDeviation == 0 ? 0 : lengthDeviation / routeCount * 2)
+				+ (lengthDeviation == 0 ? 0 : lengthDeviation)
 				+ districtConnections / allConnections
 				+ hubGini
 				+ terminalDeviation;
