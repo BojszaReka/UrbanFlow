@@ -279,6 +279,9 @@ namespace Urbanflow.src.backend.models.ga
 
 						break;
 				}
+
+				AllRoutes = [];
+
 				return Result<double>.Success(fitnessValue);
 			}catch(Exception ex)
 			{
@@ -619,7 +622,7 @@ namespace Urbanflow.src.backend.models.ga
 
 				foreach (var stop in onRoute)
 				{
-					if (!visited.Add(stop)) loopCount++;
+					if (!visited.Add(stop) && !stop.Equals(onRoute[0]) && !stop.Equals(onRoute[^1])) loopCount++;
 					unmetStops.Remove(stop);
 					routeStops.Add(stop);
 
@@ -632,7 +635,7 @@ namespace Urbanflow.src.backend.models.ga
 				{
 					foreach (var stop in backRoute)
 					{
-						if (!visited.Add(stop)) loopCount++;
+						if (!visited.Add(stop) && !stop.Equals(backRoute[0]) && !stop.Equals(backRoute[^1])) loopCount++;
 						unmetStops.Remove(stop);
 						routeStops.Add(stop);
 
@@ -789,7 +792,7 @@ namespace Urbanflow.src.backend.models.ga
 				}
 			}
 
-			double allConnections = Factorial(districts.Count);
+			double allConnections = Factorial(districts.Count / 3);
 
 			UnMetStopPercentage = (double)unmetStops.Count / (double)network.AllStops.Count;
 			UnMetStopList = unmetStops.ToList();
@@ -800,10 +803,16 @@ namespace Urbanflow.src.backend.models.ga
 				+ loopCount * 100
 				+ terminalMistakes * 1000
 				+ unmetStops.Count * 1000
-				+ (lengthDeviation == 0 ? 0 : lengthDeviation)
+				+ (lengthDeviation == 0 ? 0 : lengthDeviation / routeCount)
 				+ districtConnections / allConnections
 				+ hubGini
 				+ terminalDeviation;
+
+			if(score< 2000.0)
+			{
+				var temp = districtConnections / allConnections;
+				Console.WriteLine();
+			}
 
 			 return Result<double>.Success(score);
 		}

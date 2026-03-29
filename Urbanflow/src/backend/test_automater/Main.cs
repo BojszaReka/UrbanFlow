@@ -10,7 +10,7 @@ namespace Urbanflow.src.backend.test_automater
 {
 	public class Main
 	{
-		private int TestIterations = 1;
+		private int TestIterations = 10;
 
 		private readonly string CityName = "Veszprém";
 		private readonly string WorkflowName = $"{DateTime.Now} Genetic Algorithm test";
@@ -20,8 +20,8 @@ namespace Urbanflow.src.backend.test_automater
 
 		private readonly OptimizationSettings settings = new()
 		{
-			PopulationSize = 200,
-			IterationNumber = 100,
+			PopulationSize = 150,
+			IterationNumber = 250,
 			UserOptimizationParameters = new OptimizationParameters
 			{
 				Genome_RouteCount = 30,

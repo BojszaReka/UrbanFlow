@@ -115,7 +115,7 @@ namespace Urbanflow.src.backend.models.ga
 					$"Current population empty, can't extract next population (GenerationID: {GenerationID})");
 			}
 
-			int takeCount = settings.PopulationSize;
+			int takeCount = (int)((double)settings.PopulationSize * 0.35);
 
 			// Only take what you actually need (no Chunk, no extra arrays)
 			var bestGenomes = Genomes
@@ -192,7 +192,7 @@ namespace Urbanflow.src.backend.models.ga
 		{
 			var random = Random.Shared;
 
-			var tournamentResult = GAUtil.TournamentSelect(sortedParentGenomes, 10, random);
+			var tournamentResult = GAUtil.TournamentSelect(sortedParentGenomes, 5, random);
 			if (tournamentResult.IsFailure)
 				throw new Exception($"TournamentSelect failed for parent_1: {tournamentResult.Error}");
 
@@ -206,7 +206,7 @@ namespace Urbanflow.src.backend.models.ga
 
 			if (useCrossing)
 			{
-				var tournamentResult2 = GAUtil.TournamentSelect(sortedParentGenomes, 10, random);
+				var tournamentResult2 = GAUtil.TournamentSelect(sortedParentGenomes, 5, random);
 				if (tournamentResult2.IsFailure)
 					throw new Exception($"TournamentSelect failed for parent_2: {tournamentResult2.Error}");
 
@@ -239,7 +239,7 @@ namespace Urbanflow.src.backend.models.ga
 		{
 			var random = Random.Shared;
 
-			var tournamentResult = GAUtil.TournamentSelect(sortedParentGenomes, 10, random);
+			var tournamentResult = GAUtil.TournamentSelect(sortedParentGenomes, 5, random);
 			if (tournamentResult.IsFailure)
 				throw new Exception($"TournamentSelect failed for parent_1: {tournamentResult.Error}");
 
@@ -252,7 +252,7 @@ namespace Urbanflow.src.backend.models.ga
 
 			if (useCrossing)
 			{
-				var tournamentResult2 = GAUtil.TournamentSelect(sortedParentGenomes, 10, random);
+				var tournamentResult2 = GAUtil.TournamentSelect(sortedParentGenomes, 5, random);
 				if (tournamentResult2.IsFailure)
 					throw new Exception($"TournamentSelect failed for parent_2: {tournamentResult2.Error}");
 

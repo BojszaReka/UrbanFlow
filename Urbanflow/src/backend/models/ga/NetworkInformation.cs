@@ -20,7 +20,7 @@ namespace Urbanflow.src.backend.models.ga
 		public IReadOnlyList<GenomeRoute> StaticRoutes { get; }
 		public IReadOnlyDictionary<Guid, List<Guid>> Districts { get; }
 
-		public Dictionary<Guid, Dictionary<Guid, List<Guid>>> CachedShortestPaths { get; set; } = [];
+		public Dictionary<(Guid start, Guid end), Guid[]> CachedShortestPaths { get; set; } = [];
 
 		public NetworkInformation(in List<Guid> terminals, in List<Guid> hubs, in List<Guid> genStops, in List<Guid> allStops, in Dictionary<Guid, List<(Guid Destination, double Weight)>> matrix, in List<GenomeRoute> staticRoutes, in Dictionary<Guid, List<Guid>> districts) { 
 			Terminals = terminals;
