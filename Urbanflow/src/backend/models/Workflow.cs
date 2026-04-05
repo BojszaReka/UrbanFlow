@@ -189,14 +189,14 @@ namespace Urbanflow.src.backend.models
 
 		internal Result<List<RunResults>> RunGA(string descriptor)
 		{
-			List<RunResults> runResults = new();
-			var result = gaOptimizationService.RunGeneticAlgorithmNewWaySelection(descriptor);
+			List<RunResults> runResults = [];
+			var result = gaOptimizationService.RunGeneticAlgorithm(descriptor, false);
 			if (result.IsFailure)
 			{
 				return Result<List<RunResults>>.Failure("New way genetic algorithm failed: "+result.Error);
 			}
 			runResults.Add(result.Value);
-			result = gaOptimizationService.RunGeneticAlgorithmOldWaySelection(descriptor);
+			result = gaOptimizationService.RunGeneticAlgorithm(descriptor, true);
 			if (result.IsFailure)
 			{
 				return Result<List<RunResults>>.Failure("Old way genetic algorithm failed: " + result.Error);

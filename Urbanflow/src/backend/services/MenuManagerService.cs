@@ -1,4 +1,6 @@
-﻿using System.Collections;
+﻿using DocumentFormat.OpenXml.Wordprocessing;
+using System.Collections;
+using System.Xml.Linq;
 using Urbanflow.src.backend.db;
 using Urbanflow.src.backend.models;
 using Urbanflow.src.backend.models.gtfs;
@@ -10,10 +12,14 @@ namespace Urbanflow.src.backend.services
 	public class MenuManagerService
 	{
 		// *** City Management ***
-		public static List<City> GetCities()
+		public static Result<List<City>> GetCities()
 		{
 			using var db = new DatabaseContext();
-			return [.. db.Cities];
+			var cities = db.Cities?.ToList();
+			if(cities != null && cities.Count > 0)
+				return Result<List<City>>.Success([.. cities]);
+
+			return Result<List<City>>.Failure("No cities found");
 		}
 
 		public static Result<List<string>> GetCityNames()
@@ -32,16 +38,24 @@ namespace Urbanflow.src.backend.services
 			}			
 		}
 
-		public static City GetCityByName(string name)
+		public static Result<City> GetCityByName(string name)
 		{
 			using var db = new DatabaseContext();
-			return db.Cities?.FirstOrDefault(c => c.Name == name);
+			var city = db.Cities?.FirstOrDefault(c => c.Name == name);
+			if(city != null)
+				return Result<City>.Success(city);
+
+			return Result<City>.Failure($"No city dound with the name: {name}");
 		}
 
-		public static City GetCityById(Guid id)
+		public static Result<City> GetCityById(Guid id)
 		{
 			using var db = new DatabaseContext();
-			return db.Cities?.FirstOrDefault(c => c.Id == id);
+			var city = db.Cities?.FirstOrDefault(c => c.Id == id);
+			if(city != null)
+				return Result<City>.Success(city);
+
+			return Result<City>.Failure($"No city dound with the id: {id}");
 		}
 
 		public static async Task<Result<Guid>> AddCity(string Name, string Description, string GtfsPath)
@@ -108,44 +122,76 @@ namespace Urbanflow.src.backend.services
 
 
 		// *** Workflow Management ***
-		public static List<Workflow> GetWorkflows()
+		public static Result<List<Workflow>> GetWorkflows()
 		{
 			using var db = new DatabaseContext();
-			return [.. db.Workflows?.Where(w => w.IsActive)];
+			var workflow = db.Workflows?.Where(w => w.IsActive);
+			if(workflow != null)
+				return Result<List<Workflow>>.Success([.. workflow]);
+
+			return Result<List<Workflow>>.Failure("No workflows found in the DB");
 		}
 
-		public static List<string> GetWorkflowNames()
+		public static Result<List<string>> GetWorkflowNames()
+		{
+			try
+			{
+				using var db = new DatabaseContext();
+
+				var workflowNames = db.Workflows?.Where(w => w.IsActive).Select(w => w.Name);
+				if (workflowNames != null)
+					return Result<List<string>>.Success([.. workflowNames]);
+
+				return Result<List<string>>.Success([]);
+			}
+			catch (Exception ex) {
+				return Result<List<string>>.Failure("Get Workflow Names failed: "+ex.Message);
+			}
+		}
+
+		public static Result<Workflow> GetWorkflowByName(string name)
 		{
 			using var db = new DatabaseContext();
-			return [.. db.Workflows?.Where(w => w.IsActive).Select(w => w.Name)];
+
+			var workflow = db.Workflows?.FirstOrDefault(w => w.Name == name && w.IsActive);
+			if (workflow != null)
+				return Result<Workflow>.Success(workflow);
+
+			return Result<Workflow>.Failure($"No workflows found in the DB with the name: {name}");
 		}
 
-		public static Workflow GetWorkflowByName(string name)
+		public static Result<Workflow> GetWorkflowById(Guid id)
 		{
 			using var db = new DatabaseContext();
-			return db.Workflows?.FirstOrDefault(w => w.Name == name && w.IsActive);
+
+			var workflow = db.Workflows?.FirstOrDefault(w => w.Id == id && w.IsActive);
+			if (workflow != null)
+				return Result<Workflow>.Success(workflow);
+
+			return Result<Workflow>.Failure($"No workflows found in the DB with the id: {id}");
 		}
 
-		public static Workflow GetWorkflowById(Guid id)
-		{
-			using var db = new DatabaseContext();
-			return db.Workflows?.FirstOrDefault(w => w.Id == id && w.IsActive);
-		}
-
-		public static Guid AddWorkflow(string Name, Guid CityId, string Description)
+		public static Result<Guid> AddWorkflow(string Name, Guid CityId, string Description)
 		{
 			if (string.IsNullOrWhiteSpace(Name) || string.IsNullOrWhiteSpace(Description))
 			{
-				throw new Exception("Workflow name and description cannot be empty.");
+				return Result<Guid>.Failure("Workflow name and description cannot be empty.");
 			}
 
-			List<string> workflownames = GetWorkflowNames();
+			var nameResult = GetWorkflowNames();
+			if (nameResult.IsFailure)
+				return Result<Guid>.Failure(nameResult.Error);
+
+			List<string> workflownames = nameResult.Value;
 			if (workflownames.Contains(Name))
 			{
-				throw new Exception("Workflow with the same name already exists.");
+				return Result<Guid>.Failure("Workflow with the same name already exists.");
 			}
 
-			City city = GetCityById(CityId);
+			var cityResult = GetCityById(CityId);
+			if (cityResult.IsFailure)
+				return Result<Guid>.Failure(cityResult.Error);
+			City city = cityResult.Value;
 
 			Workflow workflow = new(Name, CityId, Description, city.GtfsFeedId);
 
@@ -155,7 +201,7 @@ namespace Urbanflow.src.backend.services
 				db.SaveChanges();
 			}
 
-			return workflow.Id;
+			return Result<Guid>.Success(workflow.Id);
 		}
 
 		public static void DeleteWorkflow(Guid workflowId)

@@ -17,7 +17,7 @@ namespace Urbanflow.src.frontend.pages
 			InitializeComponent();
 			LoadCitiesIntoComboBox();
 
-			runtest();
+			Runtest();
 		}
 
 		private async void AddCity_Click(object sender, RoutedEventArgs e)
@@ -118,9 +118,9 @@ namespace Urbanflow.src.frontend.pages
 			}
 		}
 
-		private async Task runtest()
+		private static async Task Runtest()
 		{
-			Main m = new Main();
+			Main m = new();
 			await m.RunGeneticAlgorithm();
 		}
 	}

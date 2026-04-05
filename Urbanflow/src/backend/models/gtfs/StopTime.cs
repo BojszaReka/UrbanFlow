@@ -50,17 +50,19 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public StopTime(in GTFS.Entities.StopTime st, Guid id, bool withoutDb = true)
 		{
-			Id = Guid.NewGuid();
-			GtfsFeedId = id;
-			TripId = st.TripId;
-			ArrivalTime = st.ArrivalTime.Hours + ":" + st.ArrivalTime.Minutes + ":" + st.ArrivalTime.Seconds;
-			DepartureTime = st.DepartureTime.Hours + ":" + st.DepartureTime.Minutes + ":" + st.DepartureTime.Seconds;
-			StopId = st.StopId;
-			StopSequence = st.StopSequence;
-			StopHeadsign = st.StopHeadsign;
-			PickupType = st.PickupType;
-			DropOffType = st.DropOffType;
-			ShapeDistTravelled = st.ShapeDistTravelled;
+			if(withoutDb){
+				Id = Guid.NewGuid();
+				GtfsFeedId = id;
+				TripId = st.TripId;
+				ArrivalTime = st.ArrivalTime.Hours + ":" + st.ArrivalTime.Minutes + ":" + st.ArrivalTime.Seconds;
+				DepartureTime = st.DepartureTime.Hours + ":" + st.DepartureTime.Minutes + ":" + st.DepartureTime.Seconds;
+				StopId = st.StopId;
+				StopSequence = st.StopSequence;
+				StopHeadsign = st.StopHeadsign;
+				PickupType = st.PickupType;
+				DropOffType = st.DropOffType;
+				ShapeDistTravelled = st.ShapeDistTravelled;
+			}
 		}
 
 		public StopTime(Guid id)
@@ -147,7 +149,7 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public override int GetHashCode()
 		{
-			return ((((((((53 * 59 + ArrivalTime.GetHashCode()) * 59 + DepartureTime.GetHashCode()) * 59 + DropOffType.GetHashCode()) * 59 + PickupType.GetHashCode()) * 59 + ShapeDistTravelled.GetHashCode()) * 59 + StopHeadsign.GetHashCode()) * 59 + StopId.GetHashCode()) * 59 + StopSequence.GetHashCode()) * 59 + TripId.GetHashCode();
+			return (((((((53 * 59 + ArrivalTime.GetHashCode()) * 59 + DepartureTime.GetHashCode()) * 59 + DropOffType.GetHashCode()) * 59 + PickupType.GetHashCode())  * 59 + StopHeadsign.GetHashCode()) * 59 + StopId.GetHashCode()) * 59 + StopSequence.GetHashCode()) * 59 + TripId.GetHashCode();
 		}
 
 		public override bool Equals(object? obj)

@@ -17,9 +17,7 @@ namespace Urbanflow.src.backend.services
 			{
 				using var db = new DatabaseContext();
 
-				var graphs = db.Graphs
-					.Where(g => g.WorkflowId == workflowId)
-					.ToHashSet();
+				var graphs = db.Graphs?.Where(g => g.WorkflowId == workflowId).ToHashSet();
 				if (graphs == null)
 					return Result<HashSet<Graph>>.Failure("No graphs found for workflow");
 
@@ -99,7 +97,7 @@ namespace Urbanflow.src.backend.services
 		{
 			var graph = graphs.Where(g => g.Type == EGraphType.Network).FirstOrDefault();
 			if (graph == null)
-				throw new Exception("No network graph for this workflow has been generated");
+				return Result<Graph>.Failure("No network graph for this workflow has been generated");
 			return graph;
 		}
 
@@ -133,9 +131,20 @@ namespace Urbanflow.src.backend.services
 				// Add edges
 				foreach (var edgeData in graphData.EdgesData)
 				{
-					var fromNode = newGraph.GetNodeByStopId(edgeData.FromStopId);
-					var toNode = newGraph.GetNodeByStopId(edgeData.ToStopId);
+					var fromNodeResult = newGraph.GetNodeByStopId(edgeData.FromStopId);
+					if (fromNodeResult.IsFailure)
+					{
+						return Result<Graph>.Failure(fromNodeResult.Error);
+					}
 
+					var toNodeResult = newGraph.GetNodeByStopId(edgeData.ToStopId);
+					if (toNodeResult.IsFailure)
+					{
+						return Result<Graph>.Failure(toNodeResult.Error);
+					}
+
+					var fromNode = fromNodeResult.Value;
+					var toNode = toNodeResult.Value;
 					if (fromNode == null || toNode == null)
 						return Result<Graph>.Failure("Invalid edge reference: node not found.");
 

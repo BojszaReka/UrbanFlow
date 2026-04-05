@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Text;
 using Urbanflow.src.backend.db;
 using Urbanflow.src.backend.models.enums;
+using Urbanflow.src.backend.models.util;
 
 namespace Urbanflow.src.backend.models.graph
 {
@@ -68,9 +69,22 @@ namespace Urbanflow.src.backend.models.graph
 		// Database interactions
 		public void LoadNodesAndEdgesFromDatabase()
 		{
+			List<GraphNode> GraphNodes = [];
+			List<GraphEdge> GraphEdges = [];
+
 			using var db = new DatabaseContext();
-			List<GraphNode> GraphNodes = [.. db.GraphNodes?.Where(gn => gn.GraphId == Id)];
-			List<GraphEdge> GraphEdges = [.. db.GraphEdges?.Where(ge => ge.GraphId == Id)];
+
+			var gndb = db.GraphNodes?.Where(gn => gn.GraphId == Id);
+			if(gndb is not null)
+				GraphNodes = [.. gndb];
+			var gedb = db.GraphEdges?.Where(ge => ge.GraphId == Id);
+			if(gedb is not null)
+				GraphEdges = [.. gedb];
+
+			if(GraphNodes.Count == 0 && GraphEdges.Count == 0)
+				return;
+
+
 			if (GraphEdges is not null)
 			{
 				foreach (GraphEdge ge in GraphEdges)
@@ -208,9 +222,13 @@ namespace Urbanflow.src.backend.models.graph
 			return $"Graph: {Name} (WorkflowId: {WorkflowId}, Type: {Type}, Nodes: {Nodes.Count}, Edges: {Edges.Count})";
 		}
 
-		internal Node GetNodeByStopId(Guid StopId)
+		internal Result<Node> GetNodeByStopId(Guid StopId)
 		{
-			return Nodes.Where(n => n.StopId == StopId).FirstOrDefault();
+			var node = Nodes.Where(n => n.StopId == StopId).FirstOrDefault();
+			if(node != null)
+				return Result<Node>.Success(node);
+
+			return Result<Node>.Failure($"No node found for the stop with Guid: {StopId}");
 		}
 	}
 }

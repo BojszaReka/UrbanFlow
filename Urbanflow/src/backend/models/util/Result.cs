@@ -19,11 +19,13 @@ namespace Urbanflow.src.backend.models.util
 		{
 			IsSuccess = true;
 			_value = value;
-			Error = null;
-			ErrorCode = null;
+			Error = string.Empty;
+			ErrorCode = string.Empty;
 		}
 
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
 		private Result(string error, string errorCode = null)
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
 		{
 			IsSuccess = false;
 			Error = error ?? throw new ArgumentNullException(nameof(error));
@@ -38,7 +40,9 @@ namespace Urbanflow.src.backend.models.util
 
 		public static Result<T> Success(T value) => new(value);
 
+#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.
 		public static Result<T> Failure(string error, string errorCode = null)
+#pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
 			=> new(error, errorCode);
 
 		public static implicit operator Result<T>(T value)

@@ -34,7 +34,7 @@ namespace Urbanflow.src.frontend.pages
 			LoadWorkflowTable();
 		}
 
-		private void AddNewWorkFlow_Click(object sender, RoutedEventArgs e)
+		private async void AddNewWorkFlow_Click(object sender, RoutedEventArgs e)
 		{
 			var dialog = new AddWorkflowDialog
 			{
@@ -43,7 +43,7 @@ namespace Urbanflow.src.frontend.pages
 
 			if (dialog.ShowDialog() == true)
 			{
-				MenuManagerService.AddNewWorkflow(dialog.WorkflowName, CityName, dialog.WorkflowDescription);
+				await MenuManagerService.AddNewWorkflow(dialog.WorkflowName, CityName, dialog.WorkflowDescription);
 
 				// Refresh DataGrid (LoadWorkflowTable should filter by CityName)
 				LoadWorkflowTable();

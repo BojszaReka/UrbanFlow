@@ -18,26 +18,26 @@ namespace Urbanflow.src.backend.models.gtfs
 	{
 		// Properties
 		[Key]
-		public Guid Id { get; internal set; } = Guid.NewGuid();
-		public string PublisherName { get; internal set; }
-		public string PublisherUrl { get; internal set; }
-		public string Lang { get; internal set; }
-		public string StartDate { get; internal set; }
-		public string EndDate { get; internal set; }
-		public string Version { get; internal set; }
+		public Guid Id { get; private set; } = Guid.NewGuid();
+		public string PublisherName { get; private set; }
+		public string PublisherUrl { get; private set; }
+		public string Lang { get; private set; }
+		public string StartDate { get; private set; }
+		public string EndDate { get; private set; }
+		public string Version { get; private set; }
 
 		// GTFS Data Collections
-		public List<Agency> Agencies { get; internal set; } = [];
-		public List<Calendar> Calendars { get; internal set; } = [];
-		public List<CalendarDate> CalendarDates { get; internal set; } = [];
-		public List<Route> Routes { get; internal set; } = [];
-		public List<Shape> Shapes { get; internal set; } = [];
-		public List<Stop> Stops { get; internal set; } = [];
-		public List<StopTime> StopTimes { get; internal set; } = [];
-		public List<Trip> Trips { get; internal set; } = [];
+		public List<Agency> Agencies { get; private set; } = [];
+		public List<Calendar> Calendars { get; private set; } = [];
+		public List<CalendarDate> CalendarDates { get; private set; } = [];
+		public List<Route> Routes { get; private set; } = [];
+		public List<Shape> Shapes { get; private set; } = [];
+		public List<Stop> Stops { get; private set; } = [];
+		public List<StopTime> StopTimes { get; private set; } = [];
+		public List<Trip> Trips { get; private set; } = [];
 
 		//other
-		public List<District> Districts { get; internal set; }
+		public List<District> Districts { get; private set; }
 
 
 		// Contructors
@@ -176,17 +176,41 @@ namespace Urbanflow.src.backend.models.gtfs
 			this.EndDate = dbFeed.EndDate;
 			this.Version = dbFeed.Version;
 
-			this.Agencies = [.. context.Agencies.Where(a => a.GtfsFeedId == id)];
-			this.Calendars = [.. context.Calendars.Where(a => a.GtfsFeedId == id)];
-			this.CalendarDates = [.. context.CalendarDates.Where(a => a.GtfsFeedId == id)];
-			this.Routes = [.. context.Routes.Where(a => a.GtfsFeedId == id)];
-			this.Shapes = [.. context.Shapes.Where(a => a.GtfsFeedId == id)];
-			this.Stops = [.. context.Stops.Where(a => a.GtfsFeedId == id)];
-			this.StopTimes = [.. context.StopTimes.Where(a => a.GtfsFeedId == id)];
-			this.Trips = [.. context.Trips.Where(a => a.GtfsFeedId == id)];
+			var agencies = context.Agencies?.Where(a => a.GtfsFeedId == id);
+			if (agencies != null)
+				this.Agencies = [.. agencies];
 
-			this.Districts = [.. context.Districts.Where(a => a.GtfsFeedId == id)];
-			Console.WriteLine();
+			var calendars = context.Calendars?.Where(a => a.GtfsFeedId == id);
+			if (calendars != null)
+				this.Calendars = [.. calendars];
+
+			var calendarDates = context.CalendarDates?.Where(a => a.GtfsFeedId == id);
+			if (calendarDates != null)
+				this.CalendarDates = [.. calendarDates];
+
+			var routes = context.Routes?.Where(a => a.GtfsFeedId == id);
+			if(routes != null)
+				this.Routes = [.. routes];
+
+			var shapes = context.Shapes?.Where(a => a.GtfsFeedId == id);
+			if(shapes != null)
+				this.Shapes = [.. shapes];
+
+			var stops = context.Stops?.Where(a => a.GtfsFeedId == id);
+			if(stops != null)
+				this.Stops = [.. stops];
+
+			var stopTimes = context.StopTimes?.Where(a => a.GtfsFeedId == id);
+			if(stopTimes != null)
+				this.StopTimes = [.. stopTimes];
+
+			var trips = context.Trips?.Where(a => a.GtfsFeedId == id);
+			if(	trips!= null)
+				this.Trips = [.. trips];
+
+			var districts = context.Districts?.Where(a => a.GtfsFeedId == id);
+			if(districts != null)
+				this.Districts = [.. districts];
 		}
 
 		public void UpdateDatabase()
@@ -353,10 +377,18 @@ namespace Urbanflow.src.backend.models.gtfs
 
 				int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
 
+				var fromStopParentResult = GetParentStopOfStop(fromStop.Id);
+				if (fromStopParentResult.IsFailure)
+					Result<HashSet<EdgeDataDTO>>.Failure(fromStopParentResult.Error);
+
+				var toStopParentResult = GetParentStopOfStop(toStop.Id);
+				if (toStopParentResult.IsFailure)
+					Result<HashSet<EdgeDataDTO>>.Failure(toStopParentResult.Error);
+
 				edgeData.Add(new EdgeDataDTO
 				{
-					FromStopId = GetParentStopOfStop(fromStop.Id).Id,
-					ToStopId = GetParentStopOfStop(toStop.Id).Id,
+					FromStopId = fromStopParentResult.Value.Id,
+					ToStopId = toStopParentResult.Value.Id,
 					TravelTimeMinutes = travelTimeMinutes,
 				});
 			}
@@ -405,7 +437,15 @@ namespace Urbanflow.src.backend.models.gtfs
 
 					int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
 
-					allEdges.Add((GetParentStopOfStop(fromStop.Id).Id, GetParentStopOfStop(toStop.Id).Id, travelTimeMinutes));
+					var fromStopParentResult = GetParentStopOfStop(fromStop.Id);
+					if (fromStopParentResult.IsFailure)
+						Result<HashSet<EdgeDataDTO>>.Failure(fromStopParentResult.Error);
+
+					var toStopParentResult = GetParentStopOfStop(toStop.Id);
+					if (toStopParentResult.IsFailure)
+						Result<HashSet<EdgeDataDTO>>.Failure(toStopParentResult.Error);
+
+					allEdges.Add((fromStopParentResult.Value.Id, toStopParentResult.Value.Id, travelTimeMinutes));
 				}
 			}
 
@@ -456,7 +496,11 @@ namespace Urbanflow.src.backend.models.gtfs
 					if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
 						continue;
 
-					allStops.Add(GetParentStopOfStop(stop.Id));
+					var stopParentResult = GetParentStopOfStop(stop.Id);
+					if (stopParentResult.IsFailure)
+						Result<HashSet<EdgeDataDTO>>.Failure(stopParentResult.Error);
+
+					allStops.Add(stopParentResult.Value);
 				}
 			}
 
@@ -508,9 +552,13 @@ namespace Urbanflow.src.backend.models.gtfs
 				if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
 					continue;
 
+				var stopParentResult = GetParentStopOfStop(stop.Id);
+				if (stopParentResult.IsFailure)
+					Result<HashSet<EdgeDataDTO>>.Failure(stopParentResult.Error);
+
 				var data = new NodeDataDTO
 				{
-					Stop = GetParentStopOfStop(stop.Id)
+					Stop = stopParentResult.Value
 				};
 
 				uniqueStops.Add(data);
@@ -566,17 +614,19 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 
 			using var db = new DatabaseContext();
-			db.Routes.UpdateRange(Routes);
+			db.Routes?.UpdateRange(Routes);
 			db.SaveChanges();
 		}
 
-		internal string GetRouteName(Guid routeId)
+		internal Result<string> GetRouteName(Guid routeId)
 		{
 			var route = Routes.Where(r => r.Id == routeId).FirstOrDefault();
-			return route.ShortName;
+			if (route == null)
+				return Result<string>.Failure($"Route with id ({routeId}) not found");
+			return Result<string>.Success(route.ShortName);
 		}
 
-		private Stop GetParentStopOfStop(Guid id)
+		private Result<Stop> GetParentStopOfStop(Guid id)
 		{
 			var stop = Stops.Where(x => x.Id == id).FirstOrDefault();
 			if (stop != null && stop.ParentStation != null)
@@ -584,11 +634,14 @@ namespace Urbanflow.src.backend.models.gtfs
 				var parentStation = Stops.Where(x => x.StopId == stop.ParentStation).FirstOrDefault();
 				if (parentStation != null)
 				{
-					return parentStation;
+					return Result<Stop>.Success(parentStation);
 				}
 				
 			}
-			return stop;
+			if(stop != null)
+				return Result<Stop>.Success(stop);
+
+			return Result<Stop>.Failure($"Couldn't get parent stop for stop, id: {id}");
 		}
 
 		internal Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>> ExtractStopConnectivityMatrix()
@@ -634,7 +687,15 @@ namespace Urbanflow.src.backend.models.gtfs
 
 						int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
 
-						allEdges.Add((GetParentStopOfStop(fromStop.Id).Id, GetParentStopOfStop(toStop.Id).Id, travelTimeMinutes));
+						var fromStopParentResult = GetParentStopOfStop(fromStop.Id);
+						if (fromStopParentResult.IsFailure)
+							Result<HashSet<EdgeDataDTO>>.Failure(fromStopParentResult.Error);
+
+						var toStopParentResult = GetParentStopOfStop(toStop.Id);
+						if (toStopParentResult.IsFailure)
+							Result<HashSet<EdgeDataDTO>>.Failure(toStopParentResult.Error);
+
+						allEdges.Add((fromStopParentResult.Value.Id, toStopParentResult.Value.Id, travelTimeMinutes));
 					}
 				}
 				catch (Exception ex)
@@ -659,26 +720,35 @@ namespace Urbanflow.src.backend.models.gtfs
 
 						int travelTimeMinutes = 6;
 
-						allEdges.Add((GetParentStopOfStop(fromStop.Id).Id, GetParentStopOfStop(toStop.Id).Id, travelTimeMinutes));
+						var fromStopParentResult = GetParentStopOfStop(fromStop.Id);
+						if (fromStopParentResult.IsFailure)
+							Result<HashSet<EdgeDataDTO>>.Failure(fromStopParentResult.Error);
+
+						var toStopParentResult = GetParentStopOfStop(toStop.Id);
+						if (toStopParentResult.IsFailure)
+							Result<HashSet<EdgeDataDTO>>.Failure(toStopParentResult.Error);
+
+						allEdges.Add((fromStopParentResult.Value.Id, toStopParentResult.Value.Id, travelTimeMinutes));
 					}
 				}
 			}
 
-				if (allEdges.Count == 0)
-					return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure("No data found for the edges of the network");
+			if (allEdges.Count == 0)
+				return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure("No data found for the edges of the network");
 
-				Dictionary<Guid, List<(Guid Destination, double Weight)>> connectivityMatrix = [];
-				foreach (var (stop1id, stop2id, minutes) in allEdges)
+			Dictionary<Guid, List<(Guid Destination, double Weight)>> connectivityMatrix = [];
+			foreach (var (stop1id, stop2id, minutes) in allEdges)
+			{
+				if (!connectivityMatrix.TryGetValue(stop1id, out List<(Guid Destination, double Weight)>? neighbours))
 				{
-					if (!connectivityMatrix.ContainsKey(stop1id))
-					{
-						connectivityMatrix[stop1id] = new List<(Guid, double)>();
-					}
-
-					connectivityMatrix[stop1id].Add((stop2id, minutes));
+					neighbours = [];
+					connectivityMatrix[stop1id] = neighbours;
 				}
 
-				return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Success(connectivityMatrix);
+				neighbours.Add((stop2id, minutes));
+			}
+
+			return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Success(connectivityMatrix);
 		}
 		
 
@@ -713,7 +783,11 @@ namespace Urbanflow.src.backend.models.gtfs
 					if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
 						continue;
 
-					allStops.Add(GetParentStopOfStop(stop.Id));
+					var stopParentResult = GetParentStopOfStop(stop.Id);
+					if (stopParentResult.IsFailure)
+						Result<List<Guid>>.Failure(stopParentResult.Error);
+
+					allStops.Add(stopParentResult.Value);
 				}
 			}
 
@@ -760,7 +834,11 @@ namespace Urbanflow.src.backend.models.gtfs
 					if (!stopDict.TryGetValue(stopTime.StopId, out var stop))
 						continue;
 
-					allStops.Add(GetParentStopOfStop(stop.Id));
+					var stopParentResult = GetParentStopOfStop(stop.Id);
+					if (stopParentResult.IsFailure)
+						Result<List<(Guid, ENodeType)>>.Failure(stopParentResult.Error);
+
+					allStops.Add(stopParentResult.Value);
 				}
 			}
 
@@ -861,8 +939,13 @@ namespace Urbanflow.src.backend.models.gtfs
 					{
 						foreach (var st in tripStopTimes)
 						{
-							if (stopsById.TryGetValue(st.StopId, out var stop))
-								onRoute.Add(GetParentStopOfStop(stop.Id).Id);
+							if (stopsById.TryGetValue(st.StopId, out var stop)){
+								var stopParentResult = GetParentStopOfStop(stop.Id);
+								if (stopParentResult.IsFailure)
+									Result<List<GenomeRoute>>.Failure(stopParentResult.Error);
+
+								onRoute.Add(stopParentResult.Value.Id); 
+							}
 						}
 					}
 				}
@@ -900,8 +983,13 @@ namespace Urbanflow.src.backend.models.gtfs
 						{
 							foreach (var st in tripStopTimes)
 							{
-								if (stopsById.TryGetValue(st.StopId, out var stop))
-									backRoute.Add(GetParentStopOfStop(stop.Id).Id);
+								if (stopsById.TryGetValue(st.StopId, out var stop)){
+									var stopParentResult = GetParentStopOfStop(stop.Id);
+									if (stopParentResult.IsFailure)
+										Result<List<GenomeRoute>>.Failure(stopParentResult.Error);
+
+									backRoute.Add(stopParentResult.Value.Id); 
+								}
 							}
 						}
 					}
@@ -1001,7 +1089,9 @@ namespace Urbanflow.src.backend.models.gtfs
 			{
 				AddDistricts(VeszpremDistrict.DistrictNames, context);
 				AddStopsToDistricts(VeszpremDistrict.DistrictNames, context);
-				this.Stops = [.. context.Stops.Where(a => a.GtfsFeedId == Id)];
+				var stops = context.Stops?.Where(a => a.GtfsFeedId == Id);
+				if(stops != null)
+					this.Stops = [.. stops];
 			}
 		}
 
@@ -1037,7 +1127,7 @@ namespace Urbanflow.src.backend.models.gtfs
 			{
 				foreach (var (name, list) in districts)
 				{
-					var d = db.Districts.Where(d => d.Name.Equals(name)).First() ?? throw new Exception($"District with {name} not found");
+					var d = db.Districts?.Where(d => d.Name.Equals(name)).First() ?? throw new Exception($"District with {name} not found");
 					foreach (var stop in Stops)
 					{
 						if (list.Contains(stop.StopId))
@@ -1071,10 +1161,12 @@ namespace Urbanflow.src.backend.models.gtfs
 		public void TryLoadingStopsTypes(DatabaseContext db)
 		{
 			AddNodeTypesToStops(VeszpremDistrict.specificStops, db);
-			this.Stops = [.. db.Stops.Where(a => a.GtfsFeedId == Id)];
+			var stops = db.Stops?.Where(a => a.GtfsFeedId == Id);
+			if(stops != null)
+				this.Stops = [.. stops];
 		}
 
-		private async void AddNodeTypesToStops(List<(ENodeType, List<string>)> specificStops, DatabaseContext db)
+		private static async void AddNodeTypesToStops(List<(ENodeType, List<string>)> specificStops, DatabaseContext db)
 		{
 			var transaction = await db.Database.BeginTransactionAsync();
 			try

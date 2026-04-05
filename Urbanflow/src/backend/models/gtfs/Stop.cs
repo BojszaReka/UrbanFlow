@@ -66,24 +66,27 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public Stop(in GTFS.Entities.Stop stop, Guid id, Guid districtId, bool withoutdb = true)
 		{
-			Id = Guid.NewGuid();
-			GtfsFeedId = id;
-			NodeType = ENodeType.Default;
+			if(withoutdb)
+			{
+				Id = Guid.NewGuid();
+				GtfsFeedId = id;
+				NodeType = ENodeType.Default;
 
-			DistrictId = districtId;
+				DistrictId = districtId;
 
-			StopId = stop.Id;
-			Code = stop.Code;
-			Name = stop.Name;
-			Description = stop.Description;
-			Latitude = stop.Latitude;
-			Longitude = stop.Longitude;
-			Zone = stop.Zone;
-			Url = stop.Url;
-			LocationType = stop.LocationType;
-			ParentStation = stop.ParentStation;
-			Timezone = stop.Timezone;
-			WheelchairBoarding = stop.WheelchairBoarding ?? "Unknown";
+				StopId = stop.Id;
+				Code = stop.Code;
+				Name = stop.Name;
+				Description = stop.Description;
+				Latitude = stop.Latitude;
+				Longitude = stop.Longitude;
+				Zone = stop.Zone;
+				Url = stop.Url;
+				LocationType = stop.LocationType;
+				ParentStation = stop.ParentStation;
+				Timezone = stop.Timezone;
+				WheelchairBoarding = stop.WheelchairBoarding ?? "Unknown";
+			}
 		}
 
 		public Stop(Guid id)
@@ -170,7 +173,7 @@ namespace Urbanflow.src.backend.models.gtfs
 		//Stolen methods
 		public override string ToString()
 		{
-			return string.Format("[{0}] {1} - {2}", new object[3] { Id, Name, Description });
+			return string.Format("[{0}] {1} - {2}", new object[3] { Id, Name, Description ?? "No description" });
 		}
 
 		public override int GetHashCode()

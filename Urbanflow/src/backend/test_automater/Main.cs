@@ -10,7 +10,7 @@ namespace Urbanflow.src.backend.test_automater
 {
 	public class Main
 	{
-		private int TestIterations = 10;
+		private int TestIterations = 1;
 
 		private readonly string CityName = "Veszprém";
 		private readonly string WorkflowName = $"{DateTime.Now} Genetic Algorithm test";
@@ -20,8 +20,8 @@ namespace Urbanflow.src.backend.test_automater
 
 		private readonly OptimizationSettings settings = new()
 		{
-			PopulationSize = 150,
-			IterationNumber = 250,
+			PopulationSize = 100,
+			IterationNumber = 200,
 			UserOptimizationParameters = new OptimizationParameters
 			{
 				Genome_RouteCount = 30,
@@ -32,7 +32,9 @@ namespace Urbanflow.src.backend.test_automater
 				Fitness_RouteLengthParameter = 18,
 				Fitness_MaximalAllowedChangeParameter = 2,
 				Fitness_FleetCapacityParameter = 100,
-				Fitness_PreferedWaitingMinutesParameter = 30
+				Fitness_MaximumWaitingMinutesParameter = 30,
+				Fitness_MinimalWaitingMinutesParameter = 5,
+				Fitness_MaximumTravelTimeParameter = 120
 			}
 		};
 
@@ -94,7 +96,6 @@ namespace Urbanflow.src.backend.test_automater
 			Console.WriteLine($"\n\n == {descriptor} FINISHED! == \n\n");
 		}
 
-
 		private async Task SetupWorkFlow()
 		{
 			Console.WriteLine("\n\n------------------------\n" +
@@ -103,8 +104,10 @@ namespace Urbanflow.src.backend.test_automater
 			try
 			{
 				await MenuManagerService.AddNewWorkflow(WorkflowName, CityName, WorkflowDescription);
-				var tempWorkflow = MenuManagerService.GetWorkflowByName(WorkflowName);
-				workflow = new Workflow(tempWorkflow.Id);
+				var tempWorkflowResult = MenuManagerService.GetWorkflowByName(WorkflowName);
+				if(tempWorkflowResult.IsFailure)
+					throw new Exception(tempWorkflowResult.Error);
+				workflow = new Workflow(tempWorkflowResult.Value.Id);
 				await workflow.SetStopTypes();
 				workflow.SetNetworkinformationFromInnerGtfsFeed();
 				workflow.CreateGAOptimizationService(settings);
@@ -122,7 +125,6 @@ namespace Urbanflow.src.backend.test_automater
 			return workflow.RunGA(descriptor);
 		}
 
-
 		public void ExportRunResultsToExcel(string folderPath, string fileName)
 		{
 			// Ensure the directory exists
@@ -136,9 +138,10 @@ namespace Urbanflow.src.backend.test_automater
 			// 1. Create Headers
 			worksheet.Cell(1, 1).Value = "Iteration";
 			worksheet.Cell(1, 2).Value = "Generation Number";
-			worksheet.Cell(1, 3).Value = "Genome Number";
-			worksheet.Cell(1, 4).Value = "Fitness Value";
-			worksheet.Cell(1, 5).Value = "Type";
+			worksheet.Cell(1, 3).Value = "Best Fitness Value";
+			worksheet.Cell(1, 4).Value = "Avarage Fitness Value";
+			worksheet.Cell(1, 5).Value = "Worst Fitness Value";
+			worksheet.Cell(1, 6).Value = "Type";
 
 			// Apply some basic styling to headers
 			var headerRow = worksheet.Row(1);
@@ -152,13 +155,14 @@ namespace Urbanflow.src.backend.test_automater
 			{
 				foreach (var (name, iteration, results) in list)
 				{
-					foreach (var (genNum, genomeNum, fitness) in results.FitnessValuesPerGenerations)
+					foreach (var (genNum, (best, avg, worst)) in results.FitnessValuesPerGenerations)
 					{
 						worksheet.Cell(currentRow, 1).Value = iteration;
 						worksheet.Cell(currentRow, 2).Value = genNum;
-						worksheet.Cell(currentRow, 3).Value = genomeNum;
-						worksheet.Cell(currentRow, 4).Value = fitness;
-						worksheet.Cell(currentRow, 5).Value = typeLabel;
+						worksheet.Cell(currentRow, 3).Value = best;
+						worksheet.Cell(currentRow, 4).Value = avg;
+						worksheet.Cell(currentRow, 5).Value = worst;
+						worksheet.Cell(currentRow, 6).Value = typeLabel;
 						currentRow++;
 					}
 				}
@@ -228,19 +232,9 @@ namespace Urbanflow.src.backend.test_automater
 		private void CheckOriginalNetwork()
 		{
 			Genome g = workflow.GetGenomeForNetwork(settings.UserOptimizationParameters);
-			List<int> routeLengths = [];
-			foreach(var route in g.MutableRoutes)
-			{
-				routeLengths.Add(route.OnRoute.Count);
-				routeLengths.Add(route.BackRoute.Count);
-			}
-			var avg =  routeLengths.Average();
-			var min = routeLengths.Min();
-			var max = routeLengths.Max();
 			
-			RunResults runRes = new([g], [(g.GenerationID, g.GenomeID, g.FitnessValue)], "Network fitness value");
+			RunResults runRes = new([g], [(g.GenerationID, (g.FitnessValue, g.FitnessValue, g.FitnessValue))], "Network fitness value");
 			NetworkRunResults.Add(("Network run result",0,runRes));
-			Console.WriteLine();
 		}
 	}
 }

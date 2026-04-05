@@ -50,16 +50,19 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public Route(in GTFS.Entities.Route r, Guid id, bool withoutdb = true)
 		{
-			Id = Guid.NewGuid();
-			GtfsFeedId = id;
-			RouteId = r.Id;
-			AgencyId = r.AgencyId;
-			ShortName = r.ShortName;
-			LongName = r.LongName;
-			Description = r.Description;
-			Url = r.Url;
-			Color = r.Color;
-			TextColor = r.TextColor;
+			if (withoutdb)
+			{
+				Id = Guid.NewGuid();
+				GtfsFeedId = id;
+				RouteId = r.Id;
+				AgencyId = r.AgencyId;
+				ShortName = r.ShortName;
+				LongName = r.LongName;
+				Description = r.Description;
+				Url = r.Url;
+				Color = r.Color;
+				TextColor = r.TextColor;
+			}			
 		}
 
 		public Route(Guid id)
@@ -122,7 +125,7 @@ namespace Urbanflow.src.backend.models.gtfs
 		//Stolen methods
 		public override int GetHashCode()
 		{
-			return ((((((((41 * 43 + (AgencyId ?? string.Empty).GetHashCode()) * 43 + Color.GetHashCode()) * 43 + (Description ?? string.Empty).GetHashCode()) * 43 + (RouteId ?? string.Empty).GetHashCode()) * 43 + (LongName ?? string.Empty).GetHashCode()) * 43 + (ShortName ?? string.Empty).GetHashCode()) * 43 + TextColor.GetHashCode()) * 43 + Type.GetHashCode()) * 43 + Url.GetHashCode();
+			return ((((((((41 * 43 + (AgencyId ?? string.Empty).GetHashCode()) * 43 + Color.GetHashCode()) * 43 + (Description ?? string.Empty).GetHashCode()) * 43 + (RouteId ?? string.Empty).GetHashCode()) * 43 + (LongName ?? string.Empty).GetHashCode()) * 43 + (ShortName ?? string.Empty).GetHashCode()) * 43 + TextColor.GetHashCode()) * 43 + Type.GetHashCode()) * 43;
 		}
 
 		public override bool Equals(object? obj)

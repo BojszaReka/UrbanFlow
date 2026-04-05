@@ -22,7 +22,7 @@ namespace Urbanflow.src.backend.models.ga
 
 			if (network.CachedShortestPaths.TryGetValue((start, end), out var cachedPath))
 			{
-				return Result<List<Guid>>.Success(new List<Guid>(cachedPath));
+				return Result<List<Guid>>.Success([.. cachedPath]);
 			}
 
 			var distances = new Dictionary<Guid, double>();
@@ -237,6 +237,7 @@ namespace Urbanflow.src.backend.models.ga
 						}
 					}
 					RemoveLoops(finalPath);
+
 					return Result<List<Guid>>.Success(finalPath);
 				}
 			}catch(Exception ex)
@@ -247,40 +248,47 @@ namespace Urbanflow.src.backend.models.ga
 
 		public static void RemoveLoops(in List<Guid> path)
 		{
-			bool removeLoops = Random.Shared.Next(2) == 0;
 
-			if (path.Count < 7 || removeLoops) // nothing to do if too small
-				return;
-
-			var seen = new Dictionary<Guid, int>();
-
-			int i = 2;
-			while (i < path.Count-2)
+			try
 			{
-				var current = path[i];
+				bool removeLoops = Random.Shared.Next(5) <= 1;
 
-				if (seen.TryGetValue(current, out int firstIndex))
+				if (path.Count < 7 || removeLoops) // nothing to do if too small
+					return;
+
+				var seen = new Dictionary<Guid, int>();
+				Console.WriteLine();
+				int i = 2;
+				while (i < path.Count - 3)
 				{
-					// Remove everything between firstIndex and i
-					int removeStart = firstIndex + 1;
-					int removeCount = i - firstIndex - 1;
+					var current = path[i];
 
-					if (removeCount > 0)
+					if (seen.TryGetValue(current, out int firstIndex))
 					{
-						path.RemoveRange(removeStart, removeCount);
+						// Remove everything between firstIndex and i
+						int removeStart = firstIndex + 1;
+						int removeCount = i - firstIndex;
 
-						// Reset and restart (simpler + safe)
-						seen.Clear();
-						i = 3;
-						continue;
+						if (removeCount > 0)
+						{
+							path.RemoveRange(removeStart, removeCount);
+
+							// Reset and restart (simpler + safe)
+							seen.Clear();
+							i = 2;
+							continue;
+						}
 					}
-				}
-				else
-				{
-					seen[current] = i;
-				}
+					else
+					{
+						seen[current] = i;
+					}
 
-				i++;
+					i++;
+				}
+			}catch(Exception ex)
+			{
+				throw new Exception("Removing loops failed: "+ex.Message);
 			}
 		}
 
@@ -344,13 +352,15 @@ namespace Urbanflow.src.backend.models.ga
 					return Result<GenomeRoute>.Failure(ChildBackRouteResult.ErrorCode);
 				}
 
+
+
 				if (ChildBackRouteResult.Value == null)
 				{
-					return Result<GenomeRoute>.Success(new GenomeRoute(OnRoute, random.Next(0, 59), random.Next(0, 59)));
+					return Result<GenomeRoute>.Success(new GenomeRoute(OnRoute, random.Next(0, 59), random.Next(1, 30)));
 				}
 				else
 				{
-					return Result<GenomeRoute>.Success(new GenomeRoute(OnRoute, random.Next(0, 59), ChildBackRouteResult.Value, random.Next(0, 59), random.Next(0, 59)));
+					return Result<GenomeRoute>.Success(new GenomeRoute(OnRoute, random.Next(0, 59), ChildBackRouteResult.Value, random.Next(0, 59), random.Next(1,30)));
 				}
 			}
 			catch (Exception ex)
@@ -362,128 +372,107 @@ namespace Urbanflow.src.backend.models.ga
 
 		public static Result<GenomeRoute> PerformCrossover(in GenomeRoute route1, in GenomeRoute route2, in NetworkInformation network, in OptimizationParameters parameters)
 		{
-			var vStart1 = route1.OnRoute.First();
-			var vEnd1 = route1.OnRoute.Last();
-			var vStart2 = route2.OnRoute.First();
-			var vEnd2 = route2.OnRoute.Last();
-
-			if (vStart1 == vStart2 && vEnd1 == vEnd2)
+			try
 			{
-				return Random.Shared.Next(2) == 0 ? route1 : route2;
-			}
+				var vStart1 = route1.OnRoute.First();
+				var vEnd1 = route1.OnRoute.Last();
+				var vStart2 = route2.OnRoute.First();
+				var vEnd2 = route2.OnRoute.Last();
 
-			var commonStops = route1.OnRoute.Intersect(route2.OnRoute).ToList();
-			commonStops.Remove(vStart1);
-			commonStops.Remove(vEnd1);
-			commonStops.Remove(vStart2);
-			commonStops.Remove(vEnd2);
-			var CommonStopCount = commonStops.Count;
-			if (CommonStopCount > 0)
-			{
-				Guid mn = commonStops[Random.Shared.Next(CommonStopCount)];
-				List<Guid> ChildOnRoute = [];
-				List<List<Guid>> splits = [];
-
-				var index1 = route1.OnRoute.IndexOf(mn);
-				var index2 = route2.OnRoute.LastIndexOf(mn);
-
-				var start1 = route1.OnRoute[..index1];
-				var start2 = route2.OnRoute[..index2];
-
-				splits.Add(route1.OnRoute[..index1]);
-				splits.Add(route2.OnRoute[..index2]);
-
-				if (index1 != route1.OnRoute.Count - 1)
+				if (vStart1 == vStart2 && vEnd1 == vEnd2)
 				{
-					splits.Add(route1.OnRoute[(index1 + 1)..]);
-					splits.Add(route2.OnRoute[(index2 + 1)..]);
+					return Random.Shared.Next(2) == 0 ? route1 : route2;
 				}
 
-				var selectedIdx1 = Random.Shared.Next(splits.Count);
-				var selectedIdx2 = Random.Shared.Next(splits.Count);
-				while (selectedIdx1 == selectedIdx2)
+				var commonStops = route1.OnRoute.Intersect(route2.OnRoute).ToList();
+				commonStops.Remove(vStart1);
+				commonStops.Remove(vEnd1);
+				commonStops.Remove(vStart2);
+				commonStops.Remove(vEnd2);
+				var CommonStopCount = commonStops.Count;
+				if (CommonStopCount > 0)
 				{
-					selectedIdx2 = Random.Shared.Next(splits.Count);
-				}
+					Guid mn = commonStops[Random.Shared.Next(CommonStopCount)];
+					List<Guid> ChildOnRoute = [];
 
-				
-				if (selectedIdx1 < 2 && selectedIdx2 > 1)
-				{
-					ChildOnRoute = [.. splits[selectedIdx1], mn, .. splits[selectedIdx2]];
-				}
-				else if (selectedIdx1 < 2 && selectedIdx2 < 2) 
-				{
-					var reversedList = splits[selectedIdx2];
-					reversedList.Reverse();
-					ChildOnRoute = [.. splits[selectedIdx1], mn, .. reversedList];
-				}else if (selectedIdx1 > 1 && selectedIdx2 < 2)
-				{
-					var reversedList1 = splits[selectedIdx1];
-					reversedList1.Reverse();
-					var reversedList2 = splits[selectedIdx2];
-					reversedList2.Reverse();
-					ChildOnRoute = [.. reversedList1, mn, .. reversedList2];
-				}
-				else if(selectedIdx1 > 1 && selectedIdx2 > 1)
-				{
-					var reversedList = splits[selectedIdx1];
-					reversedList.Reverse();
-					ChildOnRoute = [.. reversedList, mn, .. splits[selectedIdx2]];
-				}
-
-				RemoveLoops(ChildOnRoute);
-
-				var ChildBackRouteResult = GetBackRoute(ChildOnRoute, network, parameters);
-				if (ChildBackRouteResult.IsFailure)
-				{
-					return Result<GenomeRoute>.Failure(ChildBackRouteResult.ErrorCode);
-				}
-
-				if (ChildBackRouteResult.Value == null)
-				{
-					return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, route1.Headway));
-				}
-				else
-				{
-					return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, ChildBackRouteResult.Value, route1.BackStartTime, route1.Headway));
-				}
-
-			}
-
-			foreach (var mx in route1.OnRoute)
-			{
-				if (network.StopConnectivityMatrix.TryGetValue(mx, out var neighbors))
-				{
-					foreach (var (Destination, Weight) in neighbors)
+					var selectedIdx1 = Random.Shared.Next(2);
+					var selectedIdx2 = Random.Shared.Next(2);
+					if (selectedIdx1 == 1)
 					{
-						if (route2.OnRoute.Contains(Destination))
+						ChildOnRoute = [.. route1.OnRoute.TakeWhile(s => s != mn)];
+					}
+					else
+					{
+						ChildOnRoute = [.. route2.OnRoute.TakeWhile(s => s != mn)];
+					}
+
+					if (selectedIdx2 == 1)
+					{
+						ChildOnRoute = [.. ChildOnRoute, .. route1.OnRoute[route1.OnRoute.LastIndexOf(mn)..]];
+					}
+					else
+					{
+						ChildOnRoute = [.. ChildOnRoute, .. route2.OnRoute[route2.OnRoute.LastIndexOf(mn)..]];
+					}
+
+					RemoveLoops(ChildOnRoute);
+
+					var ChildBackRouteResult = GetBackRoute(ChildOnRoute, network, parameters);
+					if (ChildBackRouteResult.IsFailure)
+					{
+						return Result<GenomeRoute>.Failure(ChildBackRouteResult.ErrorCode);
+					}
+
+					if (ChildBackRouteResult.Value == null)
+					{
+						return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, route1.Headway));
+					}
+					else
+					{
+						return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, ChildBackRouteResult.Value, route1.BackStartTime, route1.Headway));
+					}
+
+				}
+
+				foreach (var mx in route1.OnRoute)
+				{
+					if (network.StopConnectivityMatrix.TryGetValue(mx, out var neighbors))
+					{
+						foreach (var (Destination, Weight) in neighbors)
 						{
-							var ChildOnRoute = route1.OnRoute.TakeWhile(s => s != mx).ToList();
-							ChildOnRoute.Add(mx);
-							ChildOnRoute.AddRange(route2.OnRoute.SkipWhile(s => s != Destination));
-							RemoveLoops(ChildOnRoute);
-							var ChildBackRouteResult = GetBackRoute(ChildOnRoute, network, parameters);
-							if (ChildBackRouteResult.IsFailure)
+							if (route2.OnRoute.Contains(Destination))
 							{
-								return Result<GenomeRoute>.Failure(ChildBackRouteResult.ErrorCode);
-							}
+								var ChildOnRoute = route1.OnRoute.TakeWhile(s => s != mx).ToList();
+								ChildOnRoute.Add(mx);
+								ChildOnRoute.AddRange(route2.OnRoute.SkipWhile(s => s != Destination));
+								RemoveLoops(ChildOnRoute);
 
-							if (ChildBackRouteResult.Value == null)
-							{
-								return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, route1.Headway));
-							}
-							else
-							{
-								return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, ChildBackRouteResult.Value, route1.BackStartTime, route1.Headway));
-							}
+								var ChildBackRouteResult = GetBackRoute(ChildOnRoute, network, parameters);
+								if (ChildBackRouteResult.IsFailure)
+								{
+									return Result<GenomeRoute>.Failure(ChildBackRouteResult.ErrorCode);
+								}
 
+								if (ChildBackRouteResult.Value == null)
+								{
+									return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, route1.Headway));
+								}
+								else
+								{
+									return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, ChildBackRouteResult.Value, route1.BackStartTime, route1.Headway));
+								}
+
+							}
 						}
 					}
 				}
-			}
 
-			var randomRoute = Random.Shared.Next(2) == 0 ? route1 : route2;
-			return Result<GenomeRoute>.Success(randomRoute); // Fallback
+				var randomRoute = Random.Shared.Next(2) == 0 ? route1 : route2;
+				return Result<GenomeRoute>.Success(randomRoute); // Fallback
+			}catch(Exception ex)
+			{
+				return Result<GenomeRoute>.Failure("Performing crossover failed: "+ex.Message);
+			}
 		}
 
 		public static Result<GenomeRoute> PerformRouteMutation(in GenomeRoute route, List<Guid> unMetStopList, in NetworkInformation network, in OptimizationParameters parameters)
@@ -574,10 +563,8 @@ namespace Urbanflow.src.backend.models.ga
 						return Result<GenomeRoute>.Failure(finalPathResult.Error);
 					path = finalPathResult.Value;
 
-					ChildOnRoute = [.. path, .. remainingSplitRoute];
-				}	
-				
-
+					ChildOnRoute = [.. path,  .. remainingSplitRoute];
+				}
 
 				var ChildBackRouteResult = GetBackRoute(ChildOnRoute, network, parameters);
 				if (ChildBackRouteResult.IsFailure)
@@ -682,13 +669,14 @@ namespace Urbanflow.src.backend.models.ga
 		{
 			var count = onRoute.Count;
 			var backRoute = new List<Guid>(count);
-			for (int i = count - 1; i >= 0; i--)
-				backRoute.Add(onRoute[i]);
+			for (int j = count - 1; j >= 0; j--)
+				backRoute.Add(onRoute[j]);
 
 			var endTerminal = backRoute[^1];
 			var connectivity = network.StopConnectivityMatrix;
 
-			for (int i = 0; i < backRoute.Count - 1; i++)
+			int i = 0;
+			while (i < backRoute.Count - 1)
 			{
 				var from = backRoute[i];
 				var to = backRoute[i + 1];
@@ -696,18 +684,13 @@ namespace Urbanflow.src.backend.models.ga
 				if (!network.StopConnectivityMatrix.TryGetValue(from, out var neighbors))
 					return Result<List<Guid>?>.Failure($"Couldn't get stop's (GUID: {from}) neighbours from connectivity matrix");
 
-				bool direct = false;
-				for (int n = 0; n < neighbors.Count; n++)
-				{
-					if (neighbors[n].Destination == to)
-					{
-						direct = true;
-						break;
-					}
-				}
+				bool isNeighbor = neighbors.Any(n => n.Destination == to);
 
-				if (direct)
+				if (isNeighbor)
+				{
+					i++;
 					continue;
+				}					
 
 				var pathResult = GetShortestPath(from, to, network);
 				if (pathResult.IsFailure)
@@ -715,10 +698,10 @@ namespace Urbanflow.src.backend.models.ga
 
 				var path = pathResult.Value;
 
-				if (path.Count < 4)
+				if (path.Count-2 < 4)
 				{
-					backRoute.RemoveAt(i + 1);
-					backRoute.InsertRange(i + 1, path.GetRange(1, path.Count - 1));
+					backRoute.RemoveRange(i, 2);
+					backRoute.InsertRange(i, path);
 					continue;
 				}
 
@@ -737,9 +720,8 @@ namespace Urbanflow.src.backend.models.ga
 
 					if (path.Count < nexthop + 4)
 					{
-						// Remove intermediate nodes in one go
-						backRoute.RemoveRange(i + 1, nexthop - 1);
-						backRoute.InsertRange(i + 1, path.GetRange(1, path.Count - 1));
+						backRoute.RemoveRange(i, nexthop);
+						backRoute.InsertRange(i, path);
 						goto ContinueOuterLoop;
 					}
 					trycount++;
@@ -762,8 +744,17 @@ namespace Urbanflow.src.backend.models.ga
 				if (pathResult.IsFailure)
 					return Result<List<Guid>?>.Failure(pathResult.Error);
 
-				var path = pathResult.Value;
+				var path = pathResult.Value.Skip(1);
 				backRoute.AddRange(path);
+			}
+
+			if (backRoute.Count <= 0) {
+				if (parameters.Genome_AllowOneWayRoutes)
+				{
+					return Result<List<Guid>?>.Success(null);
+				}
+
+				return Result<List<Guid>?>.Failure("Backroute is not possible to generate, no stops");
 			}
 
 			return Result<List<Guid>?>.Success(backRoute);

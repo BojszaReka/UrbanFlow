@@ -50,17 +50,19 @@ namespace Urbanflow.src.backend.models.gtfs
 
 		public Trip(in GTFS.Entities.Trip trip, Guid id, bool withoutdb = true)
 		{
-			Id = Guid.NewGuid();
-			GtfsFeedId = id;
-			TripId = trip.Id;
-			RouteId = trip.RouteId;
-			ServiceId = trip.ServiceId;
-			Headsign = trip.Headsign;
-			ShortName = trip.ShortName;
-			Direction = trip.Direction;
-			BlockId = trip.BlockId;
-			ShapeId = trip.ShapeId;
-			AccessibilityType = trip.AccessibilityType;
+			if(withoutdb){
+				Id = Guid.NewGuid();
+				GtfsFeedId = id;
+				TripId = trip.Id;
+				RouteId = trip.RouteId;
+				ServiceId = trip.ServiceId;
+				Headsign = trip.Headsign;
+				ShortName = trip.ShortName;
+				Direction = trip.Direction;
+				BlockId = trip.BlockId;
+				ShapeId = trip.ShapeId;
+				AccessibilityType = trip.AccessibilityType;
+			}
 		}
 
 		public Trip(Guid id)
@@ -119,12 +121,12 @@ namespace Urbanflow.src.backend.models.gtfs
 		// Stolen methods
 		public override string ToString()
 		{
-			return string.Format("[{0}] {1}", new object[2] { ShortName, Headsign });
+			return string.Format("[{0}] {1}", new object[2] { ShortName ?? "No shortname", Headsign });
 		}
 
 		public override int GetHashCode()
 		{
-			return ((((((((83 * 89 + AccessibilityType.GetHashCode()) * 89 + BlockId.GetHashCode()) * 89 + Direction.GetHashCode()) * 89 + Headsign.GetHashCode()) * 89 + TripId.GetHashCode()) * 89 + RouteId.GetHashCode()) * 89 + ServiceId.GetHashCode()) * 89 + ShapeId.GetHashCode());
+			return (((((((83 * 89 + AccessibilityType.GetHashCode()) * 89 + Direction.GetHashCode()) * 89 + Headsign.GetHashCode()) * 89 + TripId.GetHashCode()) * 89 + RouteId.GetHashCode()) * 89 + ServiceId.GetHashCode()) * 89 + ShapeId.GetHashCode());
 		}
 
 		public override bool Equals(object? obj)

@@ -12,11 +12,10 @@ namespace Urbanflow.src.backend.models.ga
 	{
 		public int GenerationID { get; set; }
 		public List<Genome> Genomes { get; set; } = [];
-		
+
 
 		//helper values
 		private int GenomeCounter { get; set; } = 0;
-		public List<Genome> NewGenomes { get; set; } = [];
 
 		public Population(int generationId, int genomeCounter)
 		{
@@ -40,12 +39,7 @@ namespace Urbanflow.src.backend.models.ga
 			{
 				try
 				{
-					Genomes.Add(
-						new Genome(
-							GenomeCounter++,
-							GenerationID,
-							settings.UserOptimizationParameters,
-							network));
+					Genomes.Add(new Genome(GenomeCounter++, GenerationID, settings.UserOptimizationParameters, network));
 				}
 				catch
 				{
@@ -58,7 +52,7 @@ namespace Urbanflow.src.backend.models.ga
 				return Result<Genome>.Failure($"Initializing genomes failed, failure threshold exceeded. Successfully initialized: {Genomes.Count}");
 			}
 
-			Genome best = Genomes[0];
+			var best = Genomes[0];
 			double bestFitness = best.FitnessValue;
 
 			for (int i = 1; i < Genomes.Count; i++)
@@ -70,84 +64,34 @@ namespace Urbanflow.src.backend.models.ga
 					best = g;
 				}
 			}
-
+			best.GenerationID = GenerationID;
 			return Result<Genome>.Success(best);
 		}
 
-		public Result<Genome> PopulateByCreatingNewGenomesNewWay(in Population previousPopulation, in OptimizationSettings settings, in NetworkInformation network, string step = "")
+		public Result<Genome> PopulateByCreatingNewGenomes(in Population previousPopulation, in OptimizationSettings settings, in NetworkInformation network, string step, bool doItOldWay = false)
 		{
-			var GenomeList = previousPopulation.Genomes;
-			if (GenomeList == null || GenomeList.Count == 0)
+			if (previousPopulation.Genomes == null || previousPopulation.Genomes.Count == 0)
 			{
 				return Result<Genome>.Failure($"Previous population is empty, can't create new genomes. (GenerationID: {GenerationID})");
 			}
-			var sortedGenomes = GenomeList.OrderBy(g => g.FitnessValue).ToList();
+			var sortedGenomes = previousPopulation.Genomes.OrderBy(g => g.FitnessValue).ToList();
 
-			for (int i = 1; i <= settings.PopulationSize; i++)
+			if (doItOldWay)
 			{
-				CreateNewGenomeControlledMutation(sortedGenomes, settings, network, step);
-			}
-
-			Genomes.AddRange(NewGenomes);
-			Genome bestGenome = Genomes[0];
-			double bestFitness = bestGenome.FitnessValue;
-
-			for (int i = 1; i < Genomes.Count; i++)
-			{
-				var g = Genomes[i];
-				if (g.FitnessValue < bestFitness)
+				for (int i = Genomes.Count; i <= settings.PopulationSize; i++)
 				{
-					bestFitness = g.FitnessValue;
-					bestGenome = g;
+					CreateNewGenome(sortedGenomes, settings, network, step);
+				}
+			}
+			else
+			{
+				for (int i = 1; i <= settings.PopulationSize; i++)
+				{
+					CreateNewGenomeControlledMutation(sortedGenomes, settings, network, step);
 				}
 			}
 
-			bestGenome.GenerationID = GenerationID;
-
-			return Result<Genome>.Success(bestGenome);
-		}		
-
-		public Result<Population> ExtractNextPopulationNewWay(in OptimizationSettings settings)
-		{
-			if (Genomes == null || Genomes.Count == 0)
-			{
-				return Result<Population>.Failure(
-					$"Current population empty, can't extract next population (GenerationID: {GenerationID})");
-			}
-
-			int takeCount = (int)((double)settings.PopulationSize * 0.35);
-
-			// Only take what you actually need (no Chunk, no extra arrays)
-			var bestGenomes = Genomes
-				.OrderBy(g => g.FitnessValue)
-				.Take(takeCount)
-				.ToArray();
-
-			var nextPopulation = new Population(
-				GenerationID + 1,
-				GenomeCounter,
-				bestGenomes);
-
-			return Result<Population>.Success(nextPopulation);
-		}
-
-		internal Result<Genome> PopulateByCreatingNewGenomesOldWay(in Population previousPopulation, in OptimizationSettings settings, in NetworkInformation network, string step)
-		{
-			var GenomeList = previousPopulation.Genomes;
-			if (GenomeList == null || GenomeList.Count == 0)
-			{
-				return Result<Genome>.Failure($"Previous population is empty, can't create new genomes. (GenerationID: {GenerationID})");
-			}
-
-			var sortedGenomes = GenomeList.OrderBy(g => g.FitnessValue).ToList();
-
-			for (int i = Genomes.Count; i <= settings.PopulationSize; i++)
-			{
-				CreateNewGenome(sortedGenomes, settings, network, step);
-			}
-
-			Genomes.AddRange(NewGenomes);
-			Genome bestGenome = Genomes[0];
+			var bestGenome = Genomes[0];
 			double bestFitness = bestGenome.FitnessValue;
 
 			for (int i = 1; i < Genomes.Count; i++)
@@ -164,7 +108,7 @@ namespace Urbanflow.src.backend.models.ga
 			return Result<Genome>.Success(bestGenome);
 		}
 
-		internal Result<Population> ExtractNextPopulationOldWay(in OptimizationSettings settings)
+		public Result<Population> ExtractNextPopulation(int takeCount)
 		{
 			if (Genomes == null || Genomes.Count == 0)
 			{
@@ -172,13 +116,7 @@ namespace Urbanflow.src.backend.models.ga
 					$"Current population empty, can't extract next population (GenerationID: {GenerationID})");
 			}
 
-			int takeCount = settings.PopulationSize / 10;
-
-			// Only take what you actually need, then materialize once
-			var bestGenomes = Genomes
-				.OrderBy(g => g.FitnessValue)
-				.Take(takeCount)
-				.ToArray();
+			var bestGenomes = Genomes.OrderBy(g => g.FitnessValue).Take(takeCount).ToArray();
 
 			var nextPopulation = new Population(
 				GenerationID + 1,
@@ -199,8 +137,8 @@ namespace Urbanflow.src.backend.models.ga
 			var parent1 = tournamentResult.Value;
 
 			bool useCrossing = parent1.UnMetStopPercentage > 0.0
-				? random.Next(5) > 1   
-				: random.Next(2)==1;
+				? random.Next(5) > 1
+				: random.Next(2) == 1;
 
 			Genome g;
 
@@ -232,7 +170,7 @@ namespace Urbanflow.src.backend.models.ga
 					step);
 			}
 
-			NewGenomes.Add(g);
+			Genomes.Add(g);
 		}
 
 		public void CreateNewGenome(in List<Genome> sortedParentGenomes, in OptimizationSettings settings, in NetworkInformation network, string step = "")
@@ -278,19 +216,70 @@ namespace Urbanflow.src.backend.models.ga
 					step);
 			}
 
-			NewGenomes.Add(g);
+			Genomes.Add(g);
 		}
 
-		public List<(int, int, double)> GatherFitnessValues()
+		public (int, (double, double, double)) GatherFitnessValues()
 		{
-			var fitnessValueList = new List<(int, int, double)>(Genomes.Count);
+
+			var sum = 0.0;
+			double best = double.MaxValue;
+			double worst = double.MinValue;
 
 			foreach (var genome in Genomes)
 			{
-				fitnessValueList.Add((GenerationID, genome.GenomeID, genome.FitnessValue));
+				sum += genome.FitnessValue;
+				if (genome.FitnessValue > worst)
+				{
+					worst = genome.FitnessValue;
+				}
+				if (genome.FitnessValue < best)
+				{
+					best = genome.FitnessValue;
+				}
 			}
 
-			return fitnessValueList;
+			var avg = sum / (double)Genomes.Count;
+
+			return (GenerationID, (best, avg, worst));
+		}
+
+		internal void SetUpForTimeOptimization(in OptimizationParameters parameters, in NetworkInformation network)
+		{
+			foreach (var genome in Genomes)
+			{
+				genome.FillTimePropertiesOfRoutes(parameters, network);
+			}
+		}
+
+		internal Result<Population> ExtractNextPopulationForTimeOptimization(int genomeCount, in OptimizationParameters parameters, in NetworkInformation network)
+		{
+			Genome bestGenome = null;
+			double bestFitness = double.MaxValue;
+			foreach (var genome in Genomes) { 
+				if(genome.FitnessValue < bestFitness)
+				{
+					bestFitness = genome.FitnessValue;
+					bestGenome = genome;
+				}
+			}
+
+			if(bestGenome != null)
+			{
+				List<Genome> newGenomeList = [];
+				for (int i = 0; i < genomeCount; i++)
+				{
+					newGenomeList.Add(bestGenome.FillTimePropertiesOfRoutes(parameters, network));
+				}
+				var nextPopulation = new Population(
+					GenerationID + 1,
+					GenomeCounter,
+					[.. newGenomeList]);
+
+				return Result<Population>.Success(nextPopulation);
+			}
+
+			return Result<Population>.Failure("Extract Next Population For Time Optimization failed, because no best genome was found");
 		}
 	}
 }
