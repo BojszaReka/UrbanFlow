@@ -1,9 +1,11 @@
-﻿using DocumentFormat.OpenXml.Wordprocessing;
+﻿using DocumentFormat.OpenXml.Drawing.Diagrams;
+using DocumentFormat.OpenXml.Wordprocessing;
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using Urbanflow.src.backend.models.util;
+using Urbanflow.src.backend.services;
 
 namespace Urbanflow.src.backend.models.ga
 {
@@ -65,6 +67,7 @@ namespace Urbanflow.src.backend.models.ga
 				}
 			}
 			best.GenerationID = GenerationID;
+			OptimizationLoggerService.Instance.Log($"Current best genome: {best}");
 			return Result<Genome>.Success(best);
 		}
 
@@ -105,6 +108,7 @@ namespace Urbanflow.src.backend.models.ga
 			}
 
 			bestGenome.GenerationID = GenerationID;
+			OptimizationLoggerService.Instance.Log($"Current best genome: {bestGenome}");
 			return Result<Genome>.Success(bestGenome);
 		}
 
@@ -240,7 +244,7 @@ namespace Urbanflow.src.backend.models.ga
 			}
 
 			var avg = sum / (double)Genomes.Count;
-
+			OptimizationLoggerService.Instance.Log($"Fitness values for generation: {GenerationID}: best={best}, avarage={avg}, worst={worst}");
 			return (GenerationID, (best, avg, worst));
 		}
 

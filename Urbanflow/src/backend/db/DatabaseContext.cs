@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Sqlite;
 using System.IO;
 using Urbanflow.src.backend.models;
+using Urbanflow.src.backend.models.db_ga;
 using Urbanflow.src.backend.models.graph;
 using Urbanflow.src.backend.models.gtfs;
 
@@ -31,6 +32,10 @@ namespace Urbanflow.src.backend.db
 		public DbSet<Stop>? Stops { get; set; }
 		public DbSet<StopTime>? StopTimes { get; set; }
 		public DbSet<Trip>? Trips { get; set; }
+
+		public DbSet<Genome>? Genomes { get; set; }
+		public DbSet<GenomeRoute>? GenomesRoutes { get; set; }
+		public DbSet<RouteStop>? RouteStops { get; set; }
 
 		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 		{
@@ -66,6 +71,9 @@ namespace Urbanflow.src.backend.db
 
 			modelBuilder.Entity<District>().HasKey(x => x.Id);
 
+			modelBuilder.Entity<Genome>().HasKey(x => x.Id);
+			modelBuilder.Entity<GenomeRoute>().HasKey(x => x.Id);
+			modelBuilder.Entity<RouteStop>().HasKey(x => x.Id);
 
 			modelBuilder.Entity<City>().ToTable("Cities");
 			modelBuilder.Entity<Workflow>().ToTable("Workflows");
@@ -88,6 +96,10 @@ namespace Urbanflow.src.backend.db
 			modelBuilder.Entity<GraphNode>().ToTable("GraphNodes");
 
 			modelBuilder.Entity<District>().ToTable("Districts");
+
+			modelBuilder.Entity<Genome>().ToTable("Genomes");
+			modelBuilder.Entity<GenomeRoute>().ToTable("GenomeRoutes");
+			modelBuilder.Entity<RouteStop>().ToTable("RouteStops");
 
 		}
 	}

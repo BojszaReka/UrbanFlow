@@ -10,7 +10,7 @@ namespace Urbanflow.src.backend.test_automater
 {
 	public class Main
 	{
-		private int TestIterations = 1;
+		private int TestIterations = 10;
 
 		private readonly string CityName = "Veszprém";
 		private readonly string WorkflowName = $"{DateTime.Now} Genetic Algorithm test";
@@ -21,7 +21,7 @@ namespace Urbanflow.src.backend.test_automater
 		private readonly OptimizationSettings settings = new()
 		{
 			PopulationSize = 100,
-			IterationNumber = 200,
+			IterationNumber = 150,
 			UserOptimizationParameters = new OptimizationParameters
 			{
 				Genome_RouteCount = 30,
@@ -65,7 +65,7 @@ namespace Urbanflow.src.backend.test_automater
 					if (result.IsFailure) throw new Exception($"Genetic algorith failed becasue: {result.Error}");
 					NewWayRunResults.Add((descriptor, i, result.Value[0]));
 					OldWayRunResults.Add((descriptor, i, result.Value[1]));
-					TestIterations--;
+					TestIterations =  0;
 					Console.WriteLine($"\n\n == {descriptor} FINISHED! == \n\n");
 
 					i += 1;

@@ -259,5 +259,11 @@ namespace Urbanflow.src.backend.models.ga
 			UnMetStopPercentage = calculator.UnMetStopPercentage;
 			return result;
 		}
+
+		public override string ToString()
+		{
+			return $"GenomeID={GenomeID}, Gen={GenerationID}, Fitness={FitnessValue:F4}, " +
+				   $"UnmetStops={UnMetStopPercentage:P2}, Parents=[{string.Join(",", Parents)}]";
+		}
 	}
 }

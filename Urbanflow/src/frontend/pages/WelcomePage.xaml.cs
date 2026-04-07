@@ -17,7 +17,7 @@ namespace Urbanflow.src.frontend.pages
 			InitializeComponent();
 			LoadCitiesIntoComboBox();
 
-			Runtest();
+			//Runtest();
 		}
 
 		private async void AddCity_Click(object sender, RoutedEventArgs e)

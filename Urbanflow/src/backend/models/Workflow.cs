@@ -3,6 +3,7 @@ using Urbanflow.src.backend.db;
 using Urbanflow.src.backend.models.DTO;
 using Urbanflow.src.backend.models.enums;
 using Urbanflow.src.backend.models.ga;
+using Urbanflow.src.backend.models.db_ga;
 using Urbanflow.src.backend.models.graph;
 using Urbanflow.src.backend.models.gtfs;
 using Urbanflow.src.backend.models.util;
@@ -19,7 +20,7 @@ namespace Urbanflow.src.backend.models
 		public string Name { get; set; } = string.Empty;
 		public Guid CityId { get; set; } = Guid.Empty;
 		public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-		public string Description { get; set; } = string.Empty; 
+		public string Description { get; set; } = string.Empty;
 		public DateTime LastModified { get; set; } = DateTime.UtcNow;
 		public bool IsActive { get; set; } = true;
 
@@ -29,6 +30,9 @@ namespace Urbanflow.src.backend.models
 
 		[ForeignKey("GtfsFeedId")]
 		private GtfsFeed GtfsFeed;
+
+		private List<db_ga.Genome> Genomes;
+
 		[NotMapped]
 		private HashSet<Graph> Graphs;
 
@@ -72,7 +76,7 @@ namespace Urbanflow.src.backend.models
 
 			gtfsManager = new GtfsManagerService();
 		}
-		 
+
 		public Workflow(Guid workflowId)
 		{
 			using var db = new DatabaseContext();
@@ -97,17 +101,18 @@ namespace Urbanflow.src.backend.models
 			GtfsFeed = new GtfsFeed(GtfsFeedId);
 
 			gtfsManager = new GtfsManagerService();
+			LoadSavedGenomes();
 		}
 
 		internal Result<Graph> GetNetWorkGraphData()
 		{
-			if(GtfsFeed == null)
+			if (GtfsFeed == null)
 			{
 				return Result<Graph>.Failure("The feed is empty");
 			}
 
 
-			if((Graphs == null || Graphs.Count == 0))
+			if ((Graphs == null || Graphs.Count == 0))
 			{
 				var networkResult = GtfsManagerService.GetDataForNetworkGraph(GtfsFeed);
 				if (networkResult.IsFailure)
@@ -115,25 +120,25 @@ namespace Urbanflow.src.backend.models
 				var graphDataDTO = networkResult.Value;
 
 				var routesResult = GtfsManagerService.GetRouteIds(GtfsFeed);
-				if(routesResult.IsFailure)
+				if (routesResult.IsFailure)
 					return Result<Graph>.Failure(routesResult.Error);
 				var routeIds = routesResult.Value;
 
 				Dictionary<Guid, GraphDataDTO> routeGraphDTO = [];
-				foreach(var routeId in routeIds)
+				foreach (var routeId in routeIds)
 				{
 					var routeDataRes = GtfsManagerService.GetDataForRouteGraph(GtfsFeed, routeId);
 					if (routeDataRes.IsFailure)
 						continue;
-						//return Result<Graph>.Failure(routeDataRes.Error);
+					//return Result<Graph>.Failure(routeDataRes.Error);
 					routeGraphDTO[routeId] = routeDataRes.Value;
 				}
 
 				var graphsResult = GraphManagerService.CreateAllGraphsForFeed(Id, graphDataDTO, routeGraphDTO);
-				if(graphsResult.IsFailure)
+				if (graphsResult.IsFailure)
 					return Result<Graph>.Failure(graphsResult.Error);
 				Graphs = graphsResult.Value;
-			}else if (!Graphs.Where(g => g.Type == EGraphType.Network).Any() && Graphs.Count > 0)
+			} else if (!Graphs.Where(g => g.Type == EGraphType.Network).Any() && Graphs.Count > 0)
 			{
 				var networkResult = GtfsManagerService.GetDataForNetworkGraph(GtfsFeed);
 				if (networkResult.IsFailure)
@@ -162,9 +167,9 @@ namespace Urbanflow.src.backend.models
 
 
 			var networkGraph = Graphs.Where(g => g.Type == EGraphType.Network).ToList();
-			if (networkGraph.Count == 0) 
+			if (networkGraph.Count == 0)
 				return Result<Graph>.Failure("No network graphs found");
-			if(networkGraph.Count > 1)
+			if (networkGraph.Count > 1)
 				return Result<Graph>.Failure("Multiple network graphs found");
 			return Result<Graph>.Success(networkGraph.First());
 		}
@@ -178,7 +183,7 @@ namespace Urbanflow.src.backend.models
 		{
 			//GtfsFeed.TryLoadingStopsTypes();
 			Result<NetworkInformation> networkInfoResult = gtfsManager.ExtractNetworkInformationForGA(GtfsFeed);
-			if(networkInfoResult.IsFailure) throw new Exception($"Setting network information for workflow is unsucsessful, because extraction from GTFS Feed failed, error: {networkInfoResult.Error}");
+			if (networkInfoResult.IsFailure) throw new Exception($"Setting network information for workflow is unsucsessful, because extraction from GTFS Feed failed, error: {networkInfoResult.Error}");
 			networkInformation = networkInfoResult.Value;
 		}
 
@@ -193,7 +198,7 @@ namespace Urbanflow.src.backend.models
 			var result = gaOptimizationService.RunGeneticAlgorithm(descriptor, false);
 			if (result.IsFailure)
 			{
-				return Result<List<RunResults>>.Failure("New way genetic algorithm failed: "+result.Error);
+				return Result<List<RunResults>>.Failure("New way genetic algorithm failed: " + result.Error);
 			}
 			runResults.Add(result.Value);
 			result = gaOptimizationService.RunGeneticAlgorithm(descriptor, true);
@@ -205,27 +210,12 @@ namespace Urbanflow.src.backend.models
 			return runResults;
 		}
 
-		internal Genome GetGenomeForNetwork(in OptimizationParameters parameters)
+		internal ga.Genome GetGenomeForNetwork(in OptimizationParameters parameters)
 		{
 			var result = GtfsFeed.ExtractNetworkAsGenome(networkInformation, parameters);
-			if (result.IsFailure) { 
+			if (result.IsFailure) {
 				throw new Exception(result.Error);
 			}
-			//var unmetstops = result.Value.UnMetStopList;
-
-			//foreach (var stop in unmetstops) { 
-			//	networkInformation.AllStops.Remove(stop);
-			//	networkInformation.GenericStops.Remove(stop);
-			//	networkInformation.Hubs.Remove(stop);
-			//	networkInformation.Terminals.Remove(stop);
-			//}
-
-			//result = GtfsFeed.ExtractNetworkAsGenome(networkInformation, parameters);
-			//if (result.IsFailure)
-			//{
-			//	throw new Exception(result.Error);
-			//}
-
 			return result.Value;
 		}
 
@@ -233,5 +223,118 @@ namespace Urbanflow.src.backend.models
 		{
 			GtfsFeed.TryLoadingStopsTypes();
 		}
+
+		internal Result<RunResults> UserRunGA(string descriptor)
+		{
+			return gaOptimizationService.RunGeneticAlgorithm(descriptor, false);
+		}
+
+		internal Result<RunResults> UserRunGAWithLogging(string descriptor, CancellationToken token)
+		{
+			return gaOptimizationService.RunGeneticAlgorithmWithLogging(descriptor, token, false);
+		}
+
+		internal void SetBestGenome(List<ga.Genome> bestGeneratedGenomes)
+		{
+			var bestGenome = bestGeneratedGenomes.LastOrDefault();
+		}
+
+		internal Result<db_ga.Genome> GetGenomeStructure(Guid genomeid)
+		{
+			db_ga.Genome Genome = new();
+			using var db = new DatabaseContext();
+
+			var genome = db.Genomes?.FirstOrDefault(g => g.Id.Equals(genomeid));
+			if (genome == null)
+				return Result<db_ga.Genome>.Failure("No Genome found with id: " + genomeid.ToString());
+
+			var genomeRoutes = db.GenomesRoutes?.Where(g => g.GenomeId.Equals(genomeid)).ToList();
+			if (genomeRoutes == null)
+				return Result<db_ga.Genome>.Failure("No routes found for the genome");
+
+			foreach (var route in genomeRoutes)
+			{
+				var onRoute = db.RouteStops?.Where(r => r.GenomeRouteId.Equals(route.Id) && r.Direction == ERouteDirection.OnRoute).OrderBy(r => r.StopSequence).ToList();
+				if (onRoute.Count == 0)
+					return Result<db_ga.Genome>.Failure("No onRoute found for GenomeRoute with Id: " + route.Id);
+				route.OnRoute = onRoute;
+
+				if (!route.OneWay)
+				{
+					var backRoute = db.RouteStops?.Where(r => r.GenomeRouteId.Equals(route.Id) && r.Direction == ERouteDirection.BackRoute).OrderBy(r => r.StopSequence).ToList();
+					if (backRoute.Count == 0)
+						return Result<db_ga.Genome>.Failure("No backRoute found for GenomeRoute with Id: " + route.Id);
+					route.BackRoute = backRoute;
+				}
+
+				Genome.MutableRoutes.Add(route);
+			}
+
+			return Result<db_ga.Genome>.Success(Genome);
+		}
+
+		public void LoadSavedGenomes()
+		{
+			using var db = new DatabaseContext();
+			var genomes = db.Genomes?.Where(g => g.WorkflowId == Id).ToList();
+			if (genomes == null || genomes.Count == 0)
+				return;
+
+
+			foreach (var genome in genomes) {
+				var genomeResult = GetGenomeStructure(genome.Id);
+				if (genomeResult.IsFailure)
+					throw new Exception(genomeResult.Error);
+
+				Genomes.Add(genomeResult.Value);
+			}
+		}
+
+		public async void SaveGenome(ga.Genome genome)
+		{
+			using var db = new DatabaseContext();
+			var transaction = await db.Database.BeginTransactionAsync();
+			try
+			{
+				db_ga.Genome g = new(genome, Id);
+				db.Genomes?.Add(g);
+				await db.SaveChangesAsync();
+
+				foreach (var route in genome.MutableRoutes)
+				{
+					db_ga.GenomeRoute gr = new(route, g.Id);
+					db.GenomesRoutes?.Add(gr);
+					await db.SaveChangesAsync();
+
+					for (int i = 0; i < route.OnRoute.Count; i++)
+					{
+						RouteStop rs = new(gr.Id, route.OnRoute[i], ERouteDirection.OnRoute, i + 1);
+						db.RouteStops?.Add(rs);
+						await db.SaveChangesAsync();
+					}
+
+					if (!route.OneWay)
+					{
+						for (int i = 0; i < route.BackRoute.Count; i++)
+						{
+							RouteStop rs = new(gr.Id, route.OnRoute[i], ERouteDirection.BackRoute, i + 1);
+							db.RouteStops?.Add(rs);
+							await db.SaveChangesAsync();
+						}
+					}
+				}
+
+			}catch(Exception ex) {
+				await transaction.RollbackAsync();
+				throw new Exception($"Saving genome into database failed because: "+ex.Message);
+			}
+			finally { 
+				await transaction.DisposeAsync();
+				await db.DisposeAsync();
+			}
+			
+
+		}
+
 	}
 }

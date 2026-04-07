@@ -20,5 +20,21 @@ namespace Urbanflow.src.backend.models.ga
 		public int Fitness_MaximumWaitingMinutesParameter { get; set; }
 		public int Fitness_MinimalWaitingMinutesParameter { get; set; }
 		public double Fitness_MaximumTravelTimeParameter { get; set; }
+
+		public override string ToString()
+		{
+			return $"Genome Parameters:\n" +
+				   $"- HubNumberInRoute: {Genome_HubNumberInRoute}\n" +
+				   $"- RouteCount: {Genome_RouteCount}\n" +
+				   $"- AllowOneWayRoutes: {Genome_AllowOneWayRoutes}\n\n" +
+				   $"Fitness Parameters:\n" +
+				   $"- RedundancyPercent: {Fitness_RedundancyPercentParameter}\n" +
+				   $"- RouteLength: {Fitness_RouteLengthParameter}\n" +
+				   $"- MaxAllowedChange: {Fitness_MaximalAllowedChangeParameter}\n" +
+				   $"- FleetCapacity: {Fitness_FleetCapacityParameter}\n" +
+				   $"- MaxWaitingMinutes: {Fitness_MaximumWaitingMinutesParameter}\n" +
+				   $"- MinWaitingMinutes: {Fitness_MinimalWaitingMinutesParameter}\n" +
+				   $"- MaxTravelTime: {Fitness_MaximumTravelTimeParameter}";
+		}
 	}
 }
