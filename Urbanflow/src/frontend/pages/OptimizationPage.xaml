@@ -88,7 +88,7 @@
                                                 Margin="0,0,0,4"/>
                                     <ui:NumberBox x:Uid="num_PopulationSize"
                                                   x:Name="num_PopulationSize"
-                                                  SpinButtonPlacementMode="Compact" Value="100" Minimum="1"/>
+                                                  SpinButtonPlacementMode="Compact" Value="250" Minimum="1"/>
 
                                     <TextBlock Text="Generációk száma"
                                                 FontSize="13"
@@ -127,6 +127,7 @@
                                                   x:Name="num_Genome_HubCount"
                                                    SpinButtonPlacementMode="Compact" Value="1" Minimum="1" />
 
+                                    
                                     <CheckBox  x:Uid="num_Genome_AllowOneWay"
                                                x:Name="num_Genome_AllowOneWay"
                                                 Content="Egyirányú útvonalak engedélyezése"
@@ -135,6 +136,16 @@
                                                 Foreground="#2C3E50"
                                                 IsChecked="True"
                                                 Margin="0,10,0,0"/>
+
+                                    <TextBlock Text="Egyirányú útvonalak maximális százaléka"
+                                            FontSize="13"
+                                            FontWeight="Medium"
+                                            Foreground="#2C3E50"
+                                            Margin="0,10,0,4"/>
+                                    <ui:NumberBox x:Uid="num_OneWayThreshold"
+                                          x:Name="num_Genome_OneWayThreshold"
+                                           SpinButtonPlacementMode="Compact" Value="25" Minimum="1" />
+
 
                                 </StackPanel>
 
@@ -166,6 +177,16 @@
                                                   x:Name="num_Fitness_Length"
                                                   SpinButtonPlacementMode="Compact" Value="18" Minimum="0"/>
 
+                                    <TextBlock Text="Minimum járat hossz (megállószám)"
+                                            FontSize="13"
+                                            FontWeight="Medium"
+                                            Foreground="#2C3E50"
+                                            Margin="0,10,0,4"/>
+                                    <ui:NumberBox x:Uid="num_Fitness_MinLength"
+                                              x:Name="num_Fitness_MinLength"
+                                              SpinButtonPlacementMode="Compact" Value="5" Minimum="0"/>
+
+
                                     <TextBlock Text="Maximális megengedett átszállás"
                                                 FontSize="13"
                                                 FontWeight="Medium"
@@ -182,7 +203,7 @@
                                                 Margin="0,10,0,4"/>
                                     <ui:NumberBox x:Uid="num_Fitness_Fleet"
                                                   x:Name="num_Fitness_Fleet"
-                                                  SpinButtonPlacementMode="Compact" Value="100" Minimum="1"/>
+                                                  SpinButtonPlacementMode="Compact" Value="30" Minimum="1"/>
 
                                     <TextBlock Text="Maximális várakozási idő (perc)"
                                                 FontSize="13"
@@ -191,7 +212,7 @@
                                                 Margin="0,10,0,4"/>
                                     <ui:NumberBox x:Uid="num_Fitness_MaxWait"
                                                   x:Name="num_Fitness_MaxWait"
-                                                  SpinButtonPlacementMode="Compact" Value="30" Minimum="0"/>
+                                                  SpinButtonPlacementMode="Compact" Value="20" Minimum="0"/>
 
                                     <TextBlock Text="Minimális várakozási idő (perc)"
                                                 FontSize="13"
@@ -209,7 +230,7 @@
                                                 Margin="0,10,0,4"/>
                                     <ui:NumberBox x:Uid="num_Fitness_MaxTravelTime"
                                                   x:Name="num_Fitness_MaxTravelTime"
-                                                  SpinButtonPlacementMode="Compact" Value="120" Minimum="1"/>
+                                                  SpinButtonPlacementMode="Compact" Value="90" Minimum="1"/>
 
                                 </StackPanel>
 

@@ -1,15 +1,18 @@
-﻿using System.Windows;
+﻿using DocumentFormat.OpenXml.Wordprocessing;
+using RTools_NTS.Util;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Urbanflow.src.backend.models;
+using Urbanflow.src.backend.models.graph;
+using Urbanflow.src.backend.models.util;
+using Urbanflow.src.backend.services;
+using yWorks.Controls;
 using yWorks.Geometry;
 using yWorks.Graph;  
 using yWorks.Graph.LabelModels;
 using yWorks.Graph.Styles; 
 using yWorks.Layout.Orthogonal;
-using Urbanflow.src.backend.services;
-using Urbanflow.src.backend.models.graph;
-using Urbanflow.src.backend.models.util;
 
 namespace Urbanflow.src.frontend.pages
 {
@@ -19,24 +22,38 @@ namespace Urbanflow.src.frontend.pages
 	public partial class GraphPage : Page
 	{
 		private Workflow workflow;
-		private Graph graphOnDisplay;
+		private Guid graphOnDisplayId;
+		private HashSet<(Guid, string)> GraphNameDisplayList = [];
+		private List<(string DiplayName, Graph graph)> ExistingGraphList = [];
+		private Dictionary<Guid, OrthogonalLayout> CachedLayoutsOfGraphs = [];
 
 		#region Constructor
 		public GraphPage(in Workflow workflow)
 		{
 			InitializeComponent();
 			this.workflow = workflow;
-
-			CreateGraph();
+			GetNetworkGraph();
+			LoadGraphsIntoComboBox();
 		}
 		#endregion
 
-		private void CreateGraph()
+		public async void OnLoaded(object source, EventArgs args)
 		{
-			var result = workflow.GetNetWorkGraphData();
+			ConfigureGroupNodeStyles();
+			SetDefaultStyles();
+			await PopulateGraph();
+			UpdateViewport();
+			LoadGraphsIntoComboBox();
+		}
+
+		private void GetNetworkGraph()
+		{
+			var result = workflow.GetNetworkGraphData();
 			if (result.IsSuccess)
 			{
-				graphOnDisplay = result.Value;
+				graphOnDisplayId = result.Value.Id;
+				GraphNameDisplayList.Add((result.Value.Id, result.Value.Name));
+				ExistingGraphList.Add((result.Value.Name, result.Value));
 			}
 			else
 			{
@@ -45,14 +62,56 @@ namespace Urbanflow.src.frontend.pages
 
 		}
 
-		public async void OnLoaded(object source, EventArgs args)
+		private void LoadGraphsIntoComboBox()
 		{
-			ConfigureGroupNodeStyles();
-			SetDefaultStyles();
-			// Populates the graph and overrides some styles and label models
+			// Remove all items except the hint
+			for (int i = GraphComboBox.Items.Count - 1; i >= 0; i--)
+			{
+				if (GraphComboBox.Items[i] != HintItem)
+					GraphComboBox.Items.RemoveAt(i);
+			}
+
+			var result = workflow.GetSavedGenomesDisplayList();
+			if (result.IsFailure)
+			{
+				MessageBox.Show($"A gráfok betöltése sikertelen, hiba: {result.Error}");
+			}
+			else
+			{
+				var savedGenomesDisplayList = result.Value;
+
+				if (savedGenomesDisplayList != null)
+				{
+					foreach (var savedGenome in savedGenomesDisplayList)
+					{
+						Guid id = savedGenome.genomeId;
+						var dispName = savedGenome.ToString();
+						GraphNameDisplayList.Add((id,dispName));
+					}
+
+				}
+			}
+
+			foreach (var (id, displayName) in GraphNameDisplayList)
+			{
+				GraphComboBox.Items.Add(new ComboBoxItem
+				{
+					Content = displayName,
+				});
+			}
+
+			// Keep the hint selected
+			HintItem.IsSelected = true;
+		}
+
+		public async Task ChangeLoadedGraph(Guid graphId)
+		{
+			graphOnDisplayId = graphId;
 			await PopulateGraph();
 			UpdateViewport();
 		}
+
+		
 
 		private void ConfigureGroupNodeStyles()
 		{
@@ -65,9 +124,9 @@ namespace Urbanflow.src.frontend.pages
 				IconSize = 14,
 				IconBackgroundShape = GroupNodeStyleIconBackgroundShape.Circle,
 				IconForegroundBrush = Brushes.White,
-				TabBrush = new SolidColorBrush(Color.FromRgb(0x24, 0x22, 0x65)),
+				TabBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x24, 0x22, 0x65)),
 				TabPosition = GroupNodeStyleTabPosition.TopTrailing,
-				Pen = new Pen(new SolidColorBrush(Color.FromRgb(0x24, 0x22, 0x65)), 2),
+				Pen = new Pen(new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x24, 0x22, 0x65)), 2),
 				CornerRadius = 4,
 				TabWidth = 70,
 				ContentAreaPadding = new InsetsD(8),
@@ -76,7 +135,7 @@ namespace Urbanflow.src.frontend.pages
 
 			// Sets a label style with right-aligned text
 			groupNodeDefaults.Labels.Style =
-				new LabelStyle { TextAlignment = TextAlignment.Right, TextBrush = Brushes.White };
+				new LabelStyle { TextAlignment = System.Windows.TextAlignment.Right, TextBrush = Brushes.White };
 
 			// Places the label inside the tab.
 			groupNodeDefaults.Labels.LayoutParameter = new GroupNodeLabelModel().CreateTabParameter();
@@ -84,7 +143,44 @@ namespace Urbanflow.src.frontend.pages
 
 		private async Task PopulateGraph()
 		{
-			if (graphOnDisplay == null) return;
+			Graph.Clear();
+
+			//CachedLayoutsOfGraphs.TryGetValue(graphOnDisplayId, out var layout);
+			//if(layout != null)
+			//{
+			//	await graphControl.ApplyLayoutAnimated(layout, TimeSpan.Zero);
+			//	return;
+			//}
+
+			Graph graphOnDisplay = new();
+			bool found = false;
+			foreach (var (DiplayName, graph) in ExistingGraphList)
+			{
+				if (graph.Id.Equals(graphOnDisplayId))
+				{
+					graphOnDisplay = graph;
+					found = true;
+				}
+			}
+
+			if (!found)
+			{
+				var graphResult = workflow.GetGenomeAsGraph(graphOnDisplayId);
+				if (graphResult.IsFailure)
+					return;
+				graphOnDisplay = graphResult.Value;
+				var dispName = "";
+				foreach (var (id, displayName) in GraphNameDisplayList)
+				{
+					if (id.Equals(graphOnDisplayId))
+					{
+						dispName = displayName;
+					}
+				}
+				ExistingGraphList.Add((dispName, graphOnDisplay));
+			}
+
+			//if (graphOnDisplay == null) return;
 			var nodeLookup = graphOnDisplay.Nodes.ToDictionary(n => n.Id);
 			var graphNodeMap = new Dictionary<Guid, INode>();
 
@@ -110,8 +206,21 @@ namespace Urbanflow.src.frontend.pages
 					graphNodeMap.Add(edge.ToNodeId, toNodeGraph);
 				}
 
+				byte red = edge.red == null ? (byte)102 : (byte)edge.red;
+				byte blue = edge.blue == null ? (byte)43 : (byte)edge.blue;
+				byte green = edge.green == null ? (byte)0 : (byte)edge.green;
+
+				var coloredEdge = new PolylineEdgeStyle
+				{
+					Pen = (Pen)new Pen(new SolidColorBrush(System.Windows.Media.Color.FromRgb(red, green, blue)), 2).GetAsFrozen(),
+					TargetArrow = new Arrow(ArrowType.Triangle,
+					(Brush)new SolidColorBrush(System.Windows.Media.Color.FromRgb(red, green, blue)).GetAsFrozen()),
+					OrthogonalEditing = true,
+					SmoothingLength = 5,
+				};
+
 				// Create edge
-				Graph.CreateEdge(fromNodeGraph, toNodeGraph);
+				Graph.CreateEdge(fromNodeGraph, toNodeGraph, coloredEdge);
 			}
 
 			var layout = new OrthogonalLayout
@@ -123,6 +232,7 @@ namespace Urbanflow.src.frontend.pages
 				GridSpacing = 10
 			};
 
+			CachedLayoutsOfGraphs[graphOnDisplayId] = layout;
 			await graphControl.ApplyLayoutAnimated(layout, TimeSpan.Zero);
 		}
 
@@ -143,8 +253,8 @@ namespace Urbanflow.src.frontend.pages
 			Graph.NodeDefaults.Style = new ShapeNodeStyle
 			{
 				Shape = ShapeNodeShape.RoundRectangle,
-				Brush = new SolidColorBrush(Color.FromRgb(255, 108, 0)),
-				Pen = new Pen(new SolidColorBrush(Color.FromRgb(102, 43, 0)), 2)
+				Brush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 108, 0)),
+				Pen = new Pen(new SolidColorBrush(System.Windows.Media.Color.FromRgb(102, 43, 0)), 2)
 			};
 
 			#endregion
@@ -156,9 +266,9 @@ namespace Urbanflow.src.frontend.pages
 			// that don't have another style assigned explicitly
 			var defaultEdgeStyle = new PolylineEdgeStyle
 			{
-				Pen = (Pen)new Pen(new SolidColorBrush(Color.FromRgb(102, 43, 0)), 2).GetAsFrozen(),
+				Pen = (Pen)new Pen(new SolidColorBrush(System.Windows.Media.Color.FromRgb(102, 43, 0)), 2).GetAsFrozen(),
 				TargetArrow = new Arrow(ArrowType.Triangle,
-					(Brush)new SolidColorBrush(Color.FromRgb(102, 43, 0)).GetAsFrozen()),
+					(Brush)new SolidColorBrush(System.Windows.Media.Color.FromRgb(102, 43, 0)).GetAsFrozen()),
 				OrthogonalEditing = true,
 				SmoothingLength = 5,
 			};
@@ -202,5 +312,33 @@ namespace Urbanflow.src.frontend.pages
 
 		#endregion
 
+
+		private async void GraphComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+		{
+			if (GraphComboBox.SelectedItem == null)
+			{
+				GraphComboBox.IsEnabled = false;
+				return;
+			}
+
+			if (GraphComboBox.SelectedItem is ComboBoxItem selected && !selected.IsEnabled)
+			{
+				return;
+			}
+
+			if (GraphComboBox.SelectedItem is ComboBoxItem selectedItem)
+			{
+				var selectedText = selectedItem.Content?.ToString();
+
+				foreach (var (id, displayName) in GraphNameDisplayList)
+				{
+					if (displayName == selectedText)
+					{
+						await ChangeLoadedGraph(id);
+						break;
+					}
+				}
+			}
+		}
 	}
 }

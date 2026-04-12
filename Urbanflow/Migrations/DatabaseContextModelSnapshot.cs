@@ -172,6 +172,15 @@ namespace Urbanflow.Migrations
                     b.Property<double>("Weight")
                         .HasColumnType("REAL");
 
+                    b.Property<byte?>("blue")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte?>("green")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte?>("red")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
 
                     b.ToTable("Edges", (string)null);

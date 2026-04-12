@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -31,6 +32,7 @@ namespace Urbanflow.src.frontend.pages
 		private string descriptor = "";
 		private CancellationTokenSource _gaCts;
 		public ObservableCollection<LogEntry> Logs => OptimizationLoggerService.Instance.Logs;
+		private readonly string SaveFolder = "C:/ADATOK/Tanulmányok/Diplomamunka/RunResults/";
 
 		public OptimizationPage(Workflow workflow)
 		{
@@ -52,9 +54,11 @@ namespace Urbanflow.src.frontend.pages
 					Genome_RouteCount = (int)num_Genome_RouteCount.Value,
 					Genome_HubNumberInRoute = (int)num_Genome_HubCount.Value,
 					Genome_AllowOneWayRoutes = (bool)num_Genome_AllowOneWay.IsChecked,
+					Genome_OneWayRoutePercentageTreshold = (int)num_Genome_OneWayThreshold.Value,
 
 					Fitness_RedundancyPercentParameter = (int)num_Fitness_Redundancy.Value,
 					Fitness_RouteLengthParameter = (int)num_Fitness_Length.Value,
+					Fitness_MinimumRouteLengthParameter = (int)num_Fitness_MinLength.Value,
 					Fitness_MaximalAllowedChangeParameter = (int)num_Fitness_Changes.Value,
 					Fitness_FleetCapacityParameter = (int)num_Fitness_Fleet.Value,
 					Fitness_MaximumWaitingMinutesParameter = (int)num_Fitness_MinWait.Value,
@@ -98,10 +102,16 @@ namespace Urbanflow.src.frontend.pages
 				}
 				else
 				{
+					var bestGenome = result.Value.BestGeneratedGenomes.OrderBy(g => g.FitnessValue).First();
+					workflow.CompareOriginalNetworkWithBestGenome(bestGenome, settings);
+
 					SetGAStatusLabel("Finished", "green");
 					OptimizationLoggerService.Instance.Log("GA finished successfully", LogLevel.Success);
 					OptimizationLoggerService.Instance.Log($"Best fitness: {result.Value.FitnessValuesPerGenerations.Last()}", LogLevel.Success);
+					DumpLogsToFile(SaveFolder+$"{DateTime.Now}_runresults_log.txt".Replace(":","_"));
 					workflow.SetBestGenome(result.Value.BestGeneratedGenomes);
+
+					
 				}
 			}
 			catch (OperationCanceledException)
@@ -142,6 +152,19 @@ namespace Urbanflow.src.frontend.pages
 		private void btn_Cancel_Click(object sender, RoutedEventArgs e)
 		{
 			_gaCts?.Cancel();
+		}
+
+		public void DumpLogsToFile(string filePath = "log.txt")
+		{
+			var logs = OptimizationLoggerService.Instance.Logs;
+
+			using (var writer = new StreamWriter(filePath, false, Encoding.UTF8))
+			{
+				foreach (var log in logs)
+				{
+					writer.WriteLine(log.FormattedMessage);
+				}
+			}
 		}
 	}
 }

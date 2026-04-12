@@ -88,10 +88,32 @@ namespace Urbanflow.src.backend.models.ga
 			}
 			else
 			{
-				for (int i = 1; i <= settings.PopulationSize; i++)
+				int i = 1;
+				int failurecount = 0;
+				while ( i <= settings.PopulationSize && failurecount <= settings.PopulationSize)
 				{
-					CreateNewGenomeControlledMutation(sortedGenomes, settings, network, step);
+					bool failure = false;
+					try
+					{
+						CreateNewGenomeControlledMutation(sortedGenomes, settings, network, step);
+					} catch
+					{
+						failure = true;
+						failurecount++;
+					}
+
+					if (!failure)
+					{
+						i++;
+					}
+					
 				}
+
+				if(failurecount > settings.PopulationSize)
+				{
+					return Result<Genome>.Failure("Initializing population failed: creating genome failures exceeded threshold");
+				}
+
 			}
 
 			var bestGenome = Genomes[0];

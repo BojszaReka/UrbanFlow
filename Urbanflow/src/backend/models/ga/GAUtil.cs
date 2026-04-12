@@ -356,11 +356,11 @@ namespace Urbanflow.src.backend.models.ga
 
 				if (ChildBackRouteResult.Value == null)
 				{
-					return Result<GenomeRoute>.Success(new GenomeRoute(OnRoute, random.Next(0, 59), random.Next(1, 30)));
+					return Result<GenomeRoute>.Success(new GenomeRoute(OnRoute, random.Next(0, 59), random.Next(1, 30), oneWay: true));
 				}
 				else
 				{
-					return Result<GenomeRoute>.Success(new GenomeRoute(OnRoute, random.Next(0, 59), ChildBackRouteResult.Value, random.Next(0, 59), random.Next(1,30)));
+					return Result<GenomeRoute>.Success(new GenomeRoute(OnRoute, random.Next(0, 59), ChildBackRouteResult.Value, random.Next(0, 59), random.Next(1,30), oneWay: false));
 				}
 			}
 			catch (Exception ex)
@@ -425,11 +425,11 @@ namespace Urbanflow.src.backend.models.ga
 
 					if (ChildBackRouteResult.Value == null)
 					{
-						return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, route1.Headway));
+						return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, route1.Headway, oneWay: true));
 					}
 					else
 					{
-						return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, ChildBackRouteResult.Value, route1.BackStartTime, route1.Headway));
+						return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, ChildBackRouteResult.Value, route1.BackStartTime, route1.Headway, oneWay: false));
 					}
 
 				}
@@ -455,11 +455,11 @@ namespace Urbanflow.src.backend.models.ga
 
 								if (ChildBackRouteResult.Value == null)
 								{
-									return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, route1.Headway));
+									return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, route1.Headway, oneWay: true));
 								}
 								else
 								{
-									return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, ChildBackRouteResult.Value, route1.BackStartTime, route1.Headway));
+									return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route1.OnStartTime, ChildBackRouteResult.Value, route1.BackStartTime, route1.Headway, oneWay: false));
 								}
 
 							}
@@ -574,11 +574,11 @@ namespace Urbanflow.src.backend.models.ga
 
 				if (ChildBackRouteResult.Value == null)
 				{
-					return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route.OnStartTime, route.Headway));
+					return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route.OnStartTime, route.Headway, oneWay: true));
 				}
 				else
 				{
-					return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route.OnStartTime, ChildBackRouteResult.Value, route.BackStartTime, route.Headway));
+					return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route.OnStartTime, ChildBackRouteResult.Value, route.BackStartTime, route.Headway, oneWay: false));
 				}
 			}
 			catch (Exception ex)
@@ -628,10 +628,19 @@ namespace Urbanflow.src.backend.models.ga
 				
 				if(otherStops.Count > 0)
 				{
-					int idx = Random.Shared.Next(otherStops.Count);
-					newStops.Add(otherStops[idx]);
-					otherStops[idx] = otherStops[^1];
-					otherStops.RemoveAt(otherStops.Count - 1);
+					if(otherStops.Count == 1)
+					{
+						newStops.Add(otherStops[0]);
+						otherStops.RemoveAt(0);
+					}
+					else
+					{
+						int idx = Random.Shared.Next(otherStops.Count);
+						newStops.Add(otherStops[idx]);
+						otherStops[idx] = otherStops[^1];
+						otherStops.RemoveAt(otherStops.Count - 1);
+					}
+					
 				}
 				
 			}
@@ -652,16 +661,16 @@ namespace Urbanflow.src.backend.models.ga
 			var ChildBackRouteResult = GetBackRoute(ChildOnRoute, network, parameters);
 			if (ChildBackRouteResult.IsFailure)
 			{
-				return Result<GenomeRoute>.Failure(ChildBackRouteResult.ErrorCode);
+				return Result<GenomeRoute>.Failure(ChildBackRouteResult.Error);
 			}
 
 			if (ChildBackRouteResult.Value == null)
 			{
-				return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route.OnStartTime, route.Headway));
+				return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route.OnStartTime, route.Headway, oneWay: true));
 			}
 			else
 			{
-				return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route.OnStartTime, ChildBackRouteResult.Value, route.BackStartTime, route.Headway));
+				return Result<GenomeRoute>.Success(new GenomeRoute(ChildOnRoute, route.OnStartTime, ChildBackRouteResult.Value, route.BackStartTime, route.Headway, oneWay: false));
 			}
 		}
 

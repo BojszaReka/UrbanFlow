@@ -10,5 +10,6 @@ namespace Urbanflow.src.backend.models.enums
 		Network = 2,
 		Route = 3,
 		RouteIntersection = 4,
+		Genome = 5,
 	}
 }

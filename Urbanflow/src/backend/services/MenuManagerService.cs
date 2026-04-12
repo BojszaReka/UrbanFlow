@@ -246,7 +246,7 @@ namespace Urbanflow.src.backend.services
 			try
 			{
 				var existingCity = (db.Cities?.FirstOrDefault(c => c.Name == cityName)) ?? throw new Exception("City not found.");
-				var newWorkflow = new Workflow(workflowName, existingCity, workflowDescription, existingCity.GtfsFeedId);
+				var newWorkflow = new Workflow(workflowName, existingCity, workflowDescription, existingCity.GtfsFeedId, true);
 				db.Workflows?.Add(newWorkflow);
 				db.SaveChanges();
 				await transaction.CommitAsync();
@@ -260,7 +260,6 @@ namespace Urbanflow.src.backend.services
 			{
 				await transaction.DisposeAsync();
 			}
-			
 		}
 
 		public static List<Workflow>? GetWorkflowsByCityName(string cityName)

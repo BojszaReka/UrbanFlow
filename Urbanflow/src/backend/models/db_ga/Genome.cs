@@ -42,7 +42,19 @@ namespace Urbanflow.src.backend.models.db_ga
 
 		public override string ToString()
 		{
-			return $"GenomeID={GenomeID}, Gen={GenerationID}, Fitness={FitnessValue:F4} ";
+			return $"GenomeID={GenomeID}, Gen={GenerationID}, Fitness={FitnessValue:F4}, Created At={CreatedAt}";
+		}
+
+		internal IEnumerable<Guid> GetStopIdList()
+		{
+			HashSet<Guid> ids = new HashSet<Guid>();
+			foreach (var route in MutableRoutes) {
+				HashSet<Guid> routeIds = route.CollectIds();
+				foreach (var routeId in routeIds) { 
+					ids.Add(routeId);
+				}
+			}
+			return ids;
 		}
 	}
 }

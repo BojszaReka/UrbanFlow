@@ -16,6 +16,10 @@ namespace Urbanflow.src.backend.models.graph
 		public double Weight { get; set; } // travel time in seconds
 		public EEdgeType Type { get; set; } = EEdgeType.Default;
 
+		public byte? red { get; set; }
+		public byte? green { get; set; }
+		public byte? blue { get; set; }
+
 		public Edge() { }
 
 		public Edge(Guid edgeId)
@@ -29,6 +33,9 @@ namespace Urbanflow.src.backend.models.graph
 				ToNodeId = edge.ToNodeId;
 				Weight = edge.Weight;
 				Type = edge.Type;
+				red = edge.red;
+				green = edge.green;
+				blue = edge.blue;
 			}
 			else
 			{
@@ -45,6 +52,9 @@ namespace Urbanflow.src.backend.models.graph
 			ToNodeId = toNodeId;
 			Weight = weight;
 			Type = type;
+			red = null;
+			green = null; 
+			blue = null;
 
 			if (edge is not null) {
 				Id = edge.Id;
@@ -52,6 +62,29 @@ namespace Urbanflow.src.backend.models.graph
 			}
 			
 			Id = Guid.NewGuid();			
+			SaveToDatabase();
+		}
+
+		public Edge(Guid fromNodeId, Guid toNodeId, double weight, byte? r, byte? g, byte? b , EEdgeType type = EEdgeType.Default)
+		{
+			using var db = new DatabaseContext();
+			var edge = db.Edges?.Where(e => e.FromNodeId == fromNodeId && e.ToNodeId == toNodeId && e.Weight == weight && e.Type == type).FirstOrDefault();
+
+			FromNodeId = fromNodeId;
+			ToNodeId = toNodeId;
+			Weight = weight;
+			Type = type;
+			red = r;
+			green = g;
+			blue = b;
+
+			if (edge is not null)
+			{
+				Id = edge.Id;
+				return;
+			}
+
+			Id = Guid.NewGuid();
 			SaveToDatabase();
 		}
 

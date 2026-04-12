@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Urbanflow.src.backend.models.ga
 {
-	public class GenomeRoute
+	public class GenomeRoute : IComparable<GenomeRoute>
 	{
 		//main fields -> computed
 		public List<Guid> OnRoute { get; set; } = [];
@@ -46,10 +46,20 @@ namespace Urbanflow.src.backend.models.ga
 			RouteIndex = index;
 			OnRoute = onRoute;
 			OnStartTime = onStartTime;
-			BackRoute = backRoute;
-			BackStartTime = backStartTime;
+			
 			Headway = headway;
 			OneWay = oneWay;
+
+			if (oneWay)
+			{
+				BackRoute = [];
+				BackStartTime = -1;
+			}
+			else
+			{
+				BackRoute = backRoute;
+				BackStartTime = backStartTime;
+			}
 		}
 
 		public GenomeRoute(int index, in List<Guid> onRoute, int onStartTime, int headway, bool oneWay = true)
@@ -72,8 +82,13 @@ namespace Urbanflow.src.backend.models.ga
 				var previousStop = OnRoute[0];
 				for (int i = 1; i < OnRoute.Count; i++)
 				{
-					if (!network.StopConnectivityMatrix.TryGetValue(previousStop, out var neighbors))
-						throw new Exception("Stop not found in the connectivity matrix");
+					if (!network.StopConnectivityMatrix.TryGetValue(previousStop, out var neighbors)){
+						baseMinute += 5;
+						BackRouteArrivalToStopInMinutes.Add((i, baseMinute));
+						previousStop = BackRoute[i];
+						continue;
+						//throw new Exception("Stop not found in the connectivity matrix");
+					}
 
 					var stop = OnRoute[i];
 					double distMin = -1.0;
@@ -88,7 +103,8 @@ namespace Urbanflow.src.backend.models.ga
 					}
 
 					if (distMin < 0)
-						throw new Exception("No connection found in the connectivity matrix");
+						distMin = 6;
+						//throw new Exception("No connection found in the connectivity matrix");
 
 					baseMinute += distMin;
 					OnRouteArrivalToStopInMinutes.Add((i, baseMinute));
@@ -103,7 +119,14 @@ namespace Urbanflow.src.backend.models.ga
 					for (int i = 1; i < BackRoute.Count; i++)
 					{
 						if (!network.StopConnectivityMatrix.TryGetValue(previousStop, out var neighbors))
-							throw new Exception("Stop not found in the connectivity matrix");
+						{
+							baseMinute += 5;
+							BackRouteArrivalToStopInMinutes.Add((i, baseMinute));
+							previousStop = BackRoute[i];
+							continue;
+							//throw new Exception("Stop not found in the connectivity matrix");
+						}
+							
 
 						var stop = BackRoute[i];
 						double distMin = -1.0;
@@ -118,7 +141,8 @@ namespace Urbanflow.src.backend.models.ga
 						}
 
 						if (distMin < 0)
-							throw new Exception("No connection found in the connectivity matrix");
+							distMin = 5;
+							//throw new Exception("No connection found in the connectivity matrix");
 
 						baseMinute += distMin;
 						BackRouteArrivalToStopInMinutes.Add((i, baseMinute));
@@ -182,6 +206,44 @@ namespace Urbanflow.src.backend.models.ga
 				}
 			}
 			return arrivalTimes;
+		}
+
+		public int CompareTo(GenomeRoute? other)
+		{
+			if(other == null) return 1;
+
+			//zero if equals
+			int differencecounter = 0;
+			if(other.OnStartTime != this.OnStartTime) differencecounter++;
+			if(other.Headway != this.Headway) differencecounter++;
+			if(other.OneWay != this.OneWay) differencecounter++;
+			if(other.BackStartTime != this.BackStartTime) differencecounter++;
+			if(other.OnRoute.Count != this.OnRoute.Count) differencecounter++;
+			if(other.BackRoute.Count != this.BackRoute.Count) differencecounter++;
+
+			if(other.OnRoute.Count == this.OnRoute.Count)
+			{
+				for (int i = 0; i < this.OnRoute.Count; i++)
+				{
+					if (!this.OnRoute[i].Equals(other.OnRoute[i]))
+					{
+						differencecounter++;
+					}
+				}
+			}
+
+			if (other.OneWay == this.OneWay && !this.OneWay && other.BackRoute.Count == this.BackRoute.Count)
+			{
+				for (int i = 0; i < this.BackRoute.Count; i++)
+				{
+					if (!this.BackRoute[i].Equals(other.BackRoute[i]))
+					{
+						differencecounter++;
+					}
+				}
+			}
+
+			return differencecounter;
 		}
 	}
 }

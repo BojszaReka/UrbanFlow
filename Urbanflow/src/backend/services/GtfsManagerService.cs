@@ -46,7 +46,8 @@ namespace Urbanflow.src.backend.services
 			try
 			{
 				feed = reader.Read(gtfsPath);
-			} catch (GTFS.Exceptions.GTFSParseException ex)
+			}
+			catch (GTFS.Exceptions.GTFSParseException ex)
 			{
 				throw new("Failed to parse GTFS data: " + ex.Message);
 			}
@@ -93,14 +94,14 @@ namespace Urbanflow.src.backend.services
 		public static Result<List<Guid>> GetRouteIds(in GtfsFeed feed)
 		{
 			List<Guid> routeIds = [.. feed.Routes.Select(r => r.Id)];
-			if(routeIds.Count != 0)
+			if (routeIds.Count != 0)
 				return Result<List<Guid>>.Success(routeIds);
 			return Result<List<Guid>>.Failure("Couln't get route ids");
 		}
 
 		public Result<NetworkInformation> ExtractNetworkInformationForGA(in GtfsFeed feed)
 		{
-			
+
 
 			var classifiedResult = feed.ExtractClassifiedStops();
 			if (classifiedResult.IsFailure)
@@ -129,7 +130,7 @@ namespace Urbanflow.src.backend.services
 			var districtResult = feed.CollectStopIdsGroupedByDistrict();
 			if (districtResult.IsFailure)
 			{
-				return Result<NetworkInformation>.Failure("Extracting districts failed: "+districtResult.Error);
+				return Result<NetworkInformation>.Failure("Extracting districts failed: " + districtResult.Error);
 			}
 			var districts = districtResult.Value;
 
@@ -138,6 +139,9 @@ namespace Urbanflow.src.backend.services
 			return Result<NetworkInformation>.Success(networkInformation);
 		}
 
-		
+		public Result<List<(byte r, byte g, byte b)>> GatherRouteColors(in GtfsFeed feed)
+		{
+			return feed.GatherRouteColors();
+		}
 	}
 }

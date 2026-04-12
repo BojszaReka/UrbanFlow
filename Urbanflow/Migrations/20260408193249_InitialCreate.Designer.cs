@@ -11,8 +11,8 @@ using Urbanflow.src.backend.db;
 namespace Urbanflow.Migrations
 {
     [DbContext(typeof(DatabaseContext))]
-    [Migration("20260321170637_AllowSomeNullable2")]
-    partial class AllowSomeNullable2
+    [Migration("20260408193249_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -84,6 +84,79 @@ namespace Urbanflow.Migrations
                     b.ToTable("Workflows", (string)null);
                 });
 
+            modelBuilder.Entity("Urbanflow.src.backend.models.db_ga.Genome", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("FitnessValue")
+                        .HasColumnType("REAL");
+
+                    b.Property<int>("GenerationID")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("WorkflowId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Genomes", (string)null);
+                });
+
+            modelBuilder.Entity("Urbanflow.src.backend.models.db_ga.GenomeRoute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BackStartTime")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("GenomeId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Headway")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("OnStartTime")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GenomeId");
+
+                    b.ToTable("GenomeRoutes", (string)null);
+                });
+
+            modelBuilder.Entity("Urbanflow.src.backend.models.db_ga.RouteStop", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("GenomeRouteId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("StopId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("StopSequence")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GenomeRouteId");
+
+                    b.ToTable("RouteStops", (string)null);
+                });
+
             modelBuilder.Entity("Urbanflow.src.backend.models.graph.Edge", b =>
                 {
                     b.Property<Guid>("Id")
@@ -101,6 +174,15 @@ namespace Urbanflow.Migrations
 
                     b.Property<double>("Weight")
                         .HasColumnType("REAL");
+
+                    b.Property<byte?>("blue")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte?>("green")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte?>("red")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -392,7 +474,6 @@ namespace Urbanflow.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Description")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("GtfsFeedId")
@@ -496,7 +577,6 @@ namespace Urbanflow.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("ParentStation")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("StopId")
@@ -504,19 +584,15 @@ namespace Urbanflow.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Timezone")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Url")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("WheelchairBoarding")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Zone")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -586,7 +662,6 @@ namespace Urbanflow.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("BlockId")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("Direction")
@@ -612,7 +687,6 @@ namespace Urbanflow.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ShortName")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("TripId")
@@ -635,6 +709,24 @@ namespace Urbanflow.Migrations
                         .IsRequired();
 
                     b.Navigation("City");
+                });
+
+            modelBuilder.Entity("Urbanflow.src.backend.models.db_ga.GenomeRoute", b =>
+                {
+                    b.HasOne("Urbanflow.src.backend.models.db_ga.Genome", null)
+                        .WithMany("MutableRoutes")
+                        .HasForeignKey("GenomeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Urbanflow.src.backend.models.db_ga.RouteStop", b =>
+                {
+                    b.HasOne("Urbanflow.src.backend.models.db_ga.GenomeRoute", null)
+                        .WithMany("OnRouteAndBackRouteStops")
+                        .HasForeignKey("GenomeRouteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.Agency", b =>
@@ -747,6 +839,16 @@ namespace Urbanflow.Migrations
             modelBuilder.Entity("Urbanflow.src.backend.models.City", b =>
                 {
                     b.Navigation("Workflows");
+                });
+
+            modelBuilder.Entity("Urbanflow.src.backend.models.db_ga.Genome", b =>
+                {
+                    b.Navigation("MutableRoutes");
+                });
+
+            modelBuilder.Entity("Urbanflow.src.backend.models.db_ga.GenomeRoute", b =>
+                {
+                    b.Navigation("OnRouteAndBackRouteStops");
                 });
 
             modelBuilder.Entity("Urbanflow.src.backend.models.gtfs.District", b =>

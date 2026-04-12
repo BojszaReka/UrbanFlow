@@ -1,9 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿using DocumentFormat.OpenXml.Wordprocessing;
+using System.ComponentModel.DataAnnotations.Schema;
 using Urbanflow.src.backend.db;
+using Urbanflow.src.backend.models.db_ga;
 using Urbanflow.src.backend.models.DTO;
 using Urbanflow.src.backend.models.enums;
 using Urbanflow.src.backend.models.ga;
-using Urbanflow.src.backend.models.db_ga;
 using Urbanflow.src.backend.models.graph;
 using Urbanflow.src.backend.models.gtfs;
 using Urbanflow.src.backend.models.util;
@@ -31,7 +32,7 @@ namespace Urbanflow.src.backend.models
 		[ForeignKey("GtfsFeedId")]
 		private GtfsFeed GtfsFeed;
 
-		private List<db_ga.Genome> Genomes;
+		private List<db_ga.Genome> Genomes = [];
 
 		[NotMapped]
 		private HashSet<Graph> Graphs;
@@ -57,7 +58,24 @@ namespace Urbanflow.src.backend.models
 
 			using var db = new DatabaseContext();
 			var feed = (db.GtfsFeeds?.Where(g => g.Id == GtfsFeedId).FirstOrDefault()) ?? throw new Exception("The attached feed does not exists");
+			db.Dispose();
 			GtfsFeed = new GtfsFeed(GtfsFeedId);
+
+			gtfsManager = new GtfsManagerService();
+		}
+
+		public Workflow(string name, City city, string description, Guid feedid, bool skipDistrict)
+		{
+			Name = name;
+			CityId = city.Id;
+			City = city;
+			Description = description;
+			GtfsFeedId = feedid;
+
+			using var db = new DatabaseContext();
+			var feed = (db.GtfsFeeds?.Where(g => g.Id == GtfsFeedId).FirstOrDefault()) ?? throw new Exception("The attached feed does not exists");
+			db.Dispose();
+			GtfsFeed = new GtfsFeed(GtfsFeedId, skipDistrict);
 
 			gtfsManager = new GtfsManagerService();
 		}
@@ -104,7 +122,7 @@ namespace Urbanflow.src.backend.models
 			LoadSavedGenomes();
 		}
 
-		internal Result<Graph> GetNetWorkGraphData()
+		internal Result<Graph> GetNetworkGraphData()
 		{
 			if (GtfsFeed == null)
 			{
@@ -237,6 +255,8 @@ namespace Urbanflow.src.backend.models
 		internal void SetBestGenome(List<ga.Genome> bestGeneratedGenomes)
 		{
 			var bestGenome = bestGeneratedGenomes.LastOrDefault();
+			if(bestGenome != null) 
+				SaveGenome(bestGenome);
 		}
 
 		internal Result<db_ga.Genome> GetGenomeStructure(Guid genomeid)
@@ -247,6 +267,7 @@ namespace Urbanflow.src.backend.models
 			var genome = db.Genomes?.FirstOrDefault(g => g.Id.Equals(genomeid));
 			if (genome == null)
 				return Result<db_ga.Genome>.Failure("No Genome found with id: " + genomeid.ToString());
+			Genome = genome;
 
 			var genomeRoutes = db.GenomesRoutes?.Where(g => g.GenomeId.Equals(genomeid)).ToList();
 			if (genomeRoutes == null)
@@ -255,14 +276,14 @@ namespace Urbanflow.src.backend.models
 			foreach (var route in genomeRoutes)
 			{
 				var onRoute = db.RouteStops?.Where(r => r.GenomeRouteId.Equals(route.Id) && r.Direction == ERouteDirection.OnRoute).OrderBy(r => r.StopSequence).ToList();
-				if (onRoute.Count == 0)
+				if (onRoute == null || onRoute.Count == 0)
 					return Result<db_ga.Genome>.Failure("No onRoute found for GenomeRoute with Id: " + route.Id);
 				route.OnRoute = onRoute;
 
-				if (!route.OneWay)
+				if (!route.OneWay && route.BackStartTime != -1)
 				{
 					var backRoute = db.RouteStops?.Where(r => r.GenomeRouteId.Equals(route.Id) && r.Direction == ERouteDirection.BackRoute).OrderBy(r => r.StopSequence).ToList();
-					if (backRoute.Count == 0)
+					if (backRoute == null || backRoute.Count == 0)
 						return Result<db_ga.Genome>.Failure("No backRoute found for GenomeRoute with Id: " + route.Id);
 					route.BackRoute = backRoute;
 				}
@@ -306,23 +327,38 @@ namespace Urbanflow.src.backend.models
 					db.GenomesRoutes?.Add(gr);
 					await db.SaveChangesAsync();
 
+					List<RouteStop> routeStops = [];
+
 					for (int i = 0; i < route.OnRoute.Count; i++)
 					{
 						RouteStop rs = new(gr.Id, route.OnRoute[i], ERouteDirection.OnRoute, i + 1);
-						db.RouteStops?.Add(rs);
-						await db.SaveChangesAsync();
+						routeStops.Add(rs);
 					}
 
-					if (!route.OneWay)
+					if (!gr.OneWay)
 					{
+						
 						for (int i = 0; i < route.BackRoute.Count; i++)
 						{
-							RouteStop rs = new(gr.Id, route.OnRoute[i], ERouteDirection.BackRoute, i + 1);
-							db.RouteStops?.Add(rs);
-							await db.SaveChangesAsync();
-						}
+							RouteStop rs = new(gr.Id, route.BackRoute[i], ERouteDirection.BackRoute, i + 1);
+							routeStops.Add(rs);
+						}	
+						
 					}
+
+					if (routeStops == null || routeStops.Count == 0)
+					{
+						throw new Exception("No stops to be saved");
+					}
+
+					foreach (var routeStop in routeStops)
+					{
+						db.RouteStops?.Add(routeStop);
+					}
+
+					await db.SaveChangesAsync();
 				}
+				await transaction.CommitAsync();
 
 			}catch(Exception ex) {
 				await transaction.RollbackAsync();
@@ -332,9 +368,97 @@ namespace Urbanflow.src.backend.models
 				await transaction.DisposeAsync();
 				await db.DisposeAsync();
 			}
-			
-
 		}
 
+		public Result<Graph> GetGenomeAsGraph(Guid id)
+		{
+			if (Genomes.Count == 0)
+			{
+				LoadSavedGenomes();
+				if (Genomes.Count == 0)
+				{
+					return Result<Graph>.Success(null);
+				}
+			}
+
+			if (networkInformation == null || networkInformation.AllStops.Count == 0) {
+				try
+				{
+					SetNetworkinformationFromInnerGtfsFeed();
+				} catch (Exception ex)
+				{
+					return Result<Graph>.Failure("Gathering network information failed: " + ex.Message);
+				}
+
+				if (networkInformation == null || networkInformation.AllStops.Count == 0)
+					return Result<Graph>.Failure("No network information found");
+			}
+
+			var genome = Genomes.First(g => g.Id.Equals(id));
+			var nodeListResult = GtfsFeed.GatherStops(genome, networkInformation.AllStops);
+			if (nodeListResult.IsFailure)
+				return Result<Graph>.Failure("Gathering nodes failed: " + nodeListResult.Error);
+
+			var colorResult = GtfsFeed.GatherRouteColors();
+			if (colorResult.IsFailure)
+				return Result<Graph>.Failure("Gathering colors failed: " + colorResult.Error);
+
+			List<List<EdgeDataDTO>> edgesData = [];
+			foreach (var genomeRoute in genome.MutableRoutes)
+			{
+				var edgeDataResult = genomeRoute.GatherEdgeDataForAllRoutes(networkInformation.StopConnectivityMatrix);
+				if(edgeDataResult.IsFailure)
+					return Result<Graph>.Failure($"Gathering edges for genomeRoute (id: {genomeRoute.Id}) failed: " + edgeDataResult.Error);
+				edgesData.Add(edgeDataResult.Value);
+			}
+
+
+			DifferentiatedRouteGraphDataDTO graphData = new(edgesData, nodeListResult.Value, colorResult.Value, $"Colored network graph for genome created at: {genome.CreatedAt}");
+			var graphResult = GraphManagerService.CreateGraphFromGenome(id, graphData, graphData.GraphName, EGraphType.Genome);
+			if(graphResult.IsFailure)
+				return Result<Graph>.Failure($"Saving the graph into the database failed " + graphResult.Error);
+
+			return Result<Graph>.Success(graphResult.Value);
+		}
+
+		public Result<List<(Guid genomeId, string DisplayName)>> GetSavedGenomesDisplayList()
+		{
+			if (Genomes == null || Genomes.Count == 0)
+			{
+				LoadSavedGenomes();
+				if (Genomes == null || Genomes.Count == 0)
+				{
+					return Result<List<(Guid genomeId, string DisplayName)>>.Success(null);
+				}
+			}
+
+			List<(Guid genomeId, string DisplayName)> GenomeDisplayNames = [];
+
+			foreach (var genome in Genomes) {
+				GenomeDisplayNames.Add((genome.Id, genome.ToString()));
+			}
+
+			if (GenomeDisplayNames.Count == 0)
+				return Result<List<(Guid genomeId, string DisplayName)>>.Failure("No gathered display names");
+
+			return Result<List<(Guid genomeId, string DisplayName)>>.Success(GenomeDisplayNames);
+		}
+
+		internal void CompareOriginalNetworkWithBestGenome(ga.Genome bestGenome, OptimizationSettings settings)
+		{
+			OptimizationLoggerService.Instance.Log("Comparing results to original network...");
+
+			ga.Genome g = GetGenomeForNetwork(settings.UserOptimizationParameters);
+
+			OptimizationLoggerService.Instance.Log("ORIGINAL NETWORK");
+			var routeFitness = g.EvaluateFitnessWithLogging("route", settings, networkInformation);
+			var timeFitness = g.EvaluateFitnessWithLogging("time", settings, networkInformation);
+			OptimizationLoggerService.Instance.Log($"ORIGINAL NETWORK FINAL FITNESS (route + fitness) = {routeFitness+timeFitness}");
+			OptimizationLoggerService.Instance.Log("BEST GENOME");
+			routeFitness = bestGenome.EvaluateFitnessWithLogging("route", settings, networkInformation);
+			timeFitness = bestGenome.EvaluateFitnessWithLogging("time", settings, networkInformation);
+			OptimizationLoggerService.Instance.Log($"BEST GENOME FINAL FITNESS (route + fitness) = {routeFitness + timeFitness}");
+
+		}
 	}
 }

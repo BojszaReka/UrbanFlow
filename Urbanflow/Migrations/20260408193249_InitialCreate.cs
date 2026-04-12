@@ -35,7 +35,10 @@ namespace Urbanflow.Migrations
                     FromNodeId = table.Column<Guid>(type: "TEXT", nullable: false),
                     ToNodeId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Weight = table.Column<double>(type: "REAL", nullable: false),
-                    Type = table.Column<int>(type: "INTEGER", nullable: false)
+                    Type = table.Column<int>(type: "INTEGER", nullable: false),
+                    red = table.Column<byte>(type: "INTEGER", nullable: true),
+                    green = table.Column<byte>(type: "INTEGER", nullable: true),
+                    blue = table.Column<byte>(type: "INTEGER", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -51,6 +54,21 @@ namespace Urbanflow.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_FeedInfos", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Genomes",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    WorkflowId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    GenerationID = table.Column<int>(type: "INTEGER", nullable: false),
+                    FitnessValue = table.Column<double>(type: "REAL", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Genomes", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -147,6 +165,27 @@ namespace Urbanflow.Migrations
                         name: "FK_Workflows_Cities_CityId",
                         column: x => x.CityId,
                         principalTable: "Cities",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "GenomeRoutes",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    GenomeId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    OnStartTime = table.Column<int>(type: "INTEGER", nullable: false),
+                    BackStartTime = table.Column<int>(type: "INTEGER", nullable: false),
+                    Headway = table.Column<int>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_GenomeRoutes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_GenomeRoutes_Genomes_GenomeId",
+                        column: x => x.GenomeId,
+                        principalTable: "Genomes",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -257,9 +296,9 @@ namespace Urbanflow.Migrations
                     AgencyId = table.Column<string>(type: "TEXT", nullable: false),
                     ShortName = table.Column<string>(type: "TEXT", nullable: false),
                     LongName = table.Column<string>(type: "TEXT", nullable: false),
-                    Description = table.Column<string>(type: "TEXT", nullable: false),
+                    Description = table.Column<string>(type: "TEXT", nullable: true),
                     Type = table.Column<int>(type: "INTEGER", nullable: false),
-                    Url = table.Column<string>(type: "TEXT", nullable: false),
+                    Url = table.Column<string>(type: "TEXT", nullable: true),
                     Color = table.Column<int>(type: "INTEGER", nullable: true),
                     TextColor = table.Column<int>(type: "INTEGER", nullable: true)
                 },
@@ -334,9 +373,9 @@ namespace Urbanflow.Migrations
                     RouteId = table.Column<string>(type: "TEXT", nullable: false),
                     ServiceId = table.Column<string>(type: "TEXT", nullable: false),
                     Headsign = table.Column<string>(type: "TEXT", nullable: false),
-                    ShortName = table.Column<string>(type: "TEXT", nullable: false),
+                    ShortName = table.Column<string>(type: "TEXT", nullable: true),
                     Direction = table.Column<int>(type: "INTEGER", nullable: true),
-                    BlockId = table.Column<string>(type: "TEXT", nullable: false),
+                    BlockId = table.Column<string>(type: "TEXT", nullable: true),
                     ShapeId = table.Column<string>(type: "TEXT", nullable: false),
                     AccessibilityType = table.Column<int>(type: "INTEGER", nullable: true)
                 },
@@ -352,6 +391,27 @@ namespace Urbanflow.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "RouteStops",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    GenomeRouteId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StopId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Direction = table.Column<int>(type: "INTEGER", nullable: false),
+                    StopSequence = table.Column<int>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RouteStops", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RouteStops_GenomeRoutes_GenomeRouteId",
+                        column: x => x.GenomeRouteId,
+                        principalTable: "GenomeRoutes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Stops",
                 columns: table => new
                 {
@@ -362,15 +422,15 @@ namespace Urbanflow.Migrations
                     StopId = table.Column<string>(type: "TEXT", nullable: false),
                     Code = table.Column<string>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", nullable: false),
-                    Description = table.Column<string>(type: "TEXT", nullable: false),
+                    Description = table.Column<string>(type: "TEXT", nullable: true),
                     Latitude = table.Column<double>(type: "REAL", nullable: false),
                     Longitude = table.Column<double>(type: "REAL", nullable: false),
-                    Zone = table.Column<string>(type: "TEXT", nullable: false),
-                    Url = table.Column<string>(type: "TEXT", nullable: false),
+                    Zone = table.Column<string>(type: "TEXT", nullable: true),
+                    Url = table.Column<string>(type: "TEXT", nullable: true),
                     LocationType = table.Column<int>(type: "INTEGER", nullable: true),
-                    ParentStation = table.Column<string>(type: "TEXT", nullable: false),
-                    Timezone = table.Column<string>(type: "TEXT", nullable: false),
-                    WheelchairBoarding = table.Column<string>(type: "TEXT", nullable: false)
+                    ParentStation = table.Column<string>(type: "TEXT", nullable: true),
+                    Timezone = table.Column<string>(type: "TEXT", nullable: true),
+                    WheelchairBoarding = table.Column<string>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -410,9 +470,19 @@ namespace Urbanflow.Migrations
                 column: "GtfsFeedId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_GenomeRoutes_GenomeId",
+                table: "GenomeRoutes",
+                column: "GenomeId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Routes_GtfsFeedId",
                 table: "Routes",
                 column: "GtfsFeedId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RouteStops_GenomeRouteId",
+                table: "RouteStops",
+                column: "GenomeRouteId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Shapes_GtfsFeedId",
@@ -479,6 +549,9 @@ namespace Urbanflow.Migrations
                 name: "Routes");
 
             migrationBuilder.DropTable(
+                name: "RouteStops");
+
+            migrationBuilder.DropTable(
                 name: "Shapes");
 
             migrationBuilder.DropTable(
@@ -494,10 +567,16 @@ namespace Urbanflow.Migrations
                 name: "Workflows");
 
             migrationBuilder.DropTable(
+                name: "GenomeRoutes");
+
+            migrationBuilder.DropTable(
                 name: "Districts");
 
             migrationBuilder.DropTable(
                 name: "Cities");
+
+            migrationBuilder.DropTable(
+                name: "Genomes");
 
             migrationBuilder.DropTable(
                 name: "GtfsFeeds");

@@ -1,4 +1,6 @@
-﻿using GTFS;
+﻿using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.Spreadsheet;
+using GTFS;
 using GTFS.Entities;
 using NetTopologySuite.EdgeGraph;
 using System.Collections.Generic;
@@ -48,8 +50,14 @@ namespace Urbanflow.src.backend.models.gtfs
 		{
 			UpdateFromDatabase(gtfsFeedId);
 			TryLoadingDistricts();
+			TryLoadingStopsTypes();
 		}
-				
+
+		public GtfsFeed(Guid gtfsFeedId, bool skipDistricts)
+		{
+			UpdateFromDatabase(gtfsFeedId);
+		}
+
 
 		public GtfsFeed(in GTFSFeed feed)
 		{
@@ -211,6 +219,8 @@ namespace Urbanflow.src.backend.models.gtfs
 			var districts = context.Districts?.Where(a => a.GtfsFeedId == id);
 			if(districts != null)
 				this.Districts = [.. districts];
+
+			context.Dispose();
 		}
 
 		public void UpdateDatabase()
@@ -372,8 +382,8 @@ namespace Urbanflow.src.backend.models.gtfs
 					return Result<HashSet<EdgeDataDTO>>.Failure($"Stop not found (ID: {toStopTime.StopId}).");
 
 				// Parse once
-				var departureTime = TimeSpan.Parse(fromStopTime.DepartureTime);
-				var arrivalTime = TimeSpan.Parse(toStopTime.ArrivalTime);
+				var departureTime = ParseGtfsTime(fromStopTime.DepartureTime);
+				var arrivalTime = ParseGtfsTime(toStopTime.ArrivalTime);
 
 				int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
 
@@ -394,6 +404,17 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 
 			return Result<HashSet<EdgeDataDTO>>.Success(edgeData);
+		}
+
+		private static TimeSpan ParseGtfsTime(string time)
+		{
+			var parts = time.Split(':');
+
+			int hours = int.Parse(parts[0]);
+			int minutes = int.Parse(parts[1]);
+			int seconds = parts.Length > 2 ? int.Parse(parts[2]) : 0;
+
+			return new TimeSpan(hours, minutes, seconds);
 		}
 
 		public Result<List<EdgeDataDTO>> GetDataForEdgesOfNetwork()
@@ -432,21 +453,30 @@ namespace Urbanflow.src.backend.models.gtfs
 					if (!stopDict.TryGetValue(toStopTime.StopId, out var toStop))
 						return Result<List<EdgeDataDTO>>.Failure($"Stop not found (ID: {toStopTime.StopId}).");
 
-					var departureTime = TimeSpan.Parse(fromStopTime.DepartureTime);
-					var arrivalTime = TimeSpan.Parse(toStopTime.ArrivalTime);
+					var departureTime = ParseGtfsTime(fromStopTime.DepartureTime);
+					var arrivalTime = ParseGtfsTime(toStopTime.ArrivalTime);
 
 					int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
 
 					var fromStopParentResult = GetParentStopOfStop(fromStop.Id);
 					if (fromStopParentResult.IsFailure)
-						Result<HashSet<EdgeDataDTO>>.Failure(fromStopParentResult.Error);
+						return Result<List<EdgeDataDTO>>.Failure(fromStopParentResult.Error);
 
 					var toStopParentResult = GetParentStopOfStop(toStop.Id);
 					if (toStopParentResult.IsFailure)
-						Result<HashSet<EdgeDataDTO>>.Failure(toStopParentResult.Error);
+						return Result<List<EdgeDataDTO>>.Failure(toStopParentResult.Error);
 
 					allEdges.Add((fromStopParentResult.Value.Id, toStopParentResult.Value.Id, travelTimeMinutes));
 				}
+			}
+
+			var additionalEdgeResults = GetStopToStopEdges();
+			if (additionalEdgeResults.IsFailure)
+				return Result<List<EdgeDataDTO>>.Failure(additionalEdgeResults.Error);
+
+			foreach(var edge in additionalEdgeResults.Value)
+			{
+				allEdges.Add(edge);
 			}
 
 			if (allEdges.Count == 0)
@@ -464,6 +494,49 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 
 			return Result<List<EdgeDataDTO>>.Success([.. dataDTOs]);
+		}
+
+		public Result<List<(Guid, Guid, int)>> GetStopToStopEdges()
+		{
+			try
+			{
+				var stopDict = Stops.ToDictionary(s => s.StopId);
+				List<(Guid, Guid, int)> allEdges = [];
+
+				foreach (var (fromlist, tolist) in VeszpremDistrict.stoptostopList)
+				{
+					foreach (var fromstopId in fromlist)
+					{
+						foreach (var tostopId in tolist)
+						{
+
+							if (!stopDict.TryGetValue(fromstopId, out var fromStop))
+								return Result<List<(Guid, Guid, int)>>.Failure($"Stop not found (ID: {fromstopId}).");
+
+							if (!stopDict.TryGetValue(tostopId, out var toStop))
+								return Result<List<(Guid, Guid, int)>>.Failure($"Stop not found (ID: {tostopId}).");
+
+							int travelTimeMinutes = 6;
+
+							var fromStopParentResult = GetParentStopOfStop(fromStop.Id);
+							if (fromStopParentResult.IsFailure)
+								return Result<List<(Guid, Guid, int)>>.Failure(fromStopParentResult.Error);
+
+							var toStopParentResult = GetParentStopOfStop(toStop.Id);
+							if (toStopParentResult.IsFailure)
+								return Result<List<(Guid, Guid, int)>>.Failure(toStopParentResult.Error);
+
+							allEdges.Add((fromStopParentResult.Value.Id, toStopParentResult.Value.Id, travelTimeMinutes));
+						}
+					}
+				}
+
+				return Result<List<(Guid, Guid, int)>>.Success(allEdges);
+			}
+			catch (Exception ex)
+			{
+				return Result<List<(Guid, Guid, int)>>.Failure(ex.Message);
+			}
 		}
 
 		public Result<List<NodeDataDTO>> GetStopsForNetworkGraph()
@@ -499,6 +572,55 @@ namespace Urbanflow.src.backend.models.gtfs
 					var stopParentResult = GetParentStopOfStop(stop.Id);
 					if (stopParentResult.IsFailure)
 						Result<HashSet<EdgeDataDTO>>.Failure(stopParentResult.Error);
+
+					allStops.Add(stopParentResult.Value);
+				}
+			}
+
+			var additionalEdgeResults = GetStopToStopEdges();
+			if (additionalEdgeResults.IsFailure)
+				return Result<List<NodeDataDTO>>.Failure(additionalEdgeResults.Error);
+
+			foreach(var (fromid, toid, min) in additionalEdgeResults.Value)
+			{
+				bool containsFrom = false;
+				bool containsTo = false;
+				foreach (var stop in allStops)
+				{
+					if(stop.Id == fromid)
+						containsFrom = true;
+
+					if(stop.Id == toid)
+						containsTo = true;
+				}
+
+				if (containsFrom && containsTo)
+					continue;
+
+				if (!containsFrom)
+				{
+					var stopParentResult = GetParentStopOfStop(fromid);
+					if (stopParentResult.IsFailure)
+						Result<HashSet<EdgeDataDTO>>.Failure(stopParentResult.Error);
+
+					if (!fromid.Equals(stopParentResult.Value.Id)){
+						Console.WriteLine();
+					}
+						
+
+					allStops.Add(stopParentResult.Value);
+				}
+
+				if (!containsTo)
+				{
+					var stopParentResult = GetParentStopOfStop(toid);
+					if (stopParentResult.IsFailure)
+						Result<HashSet<EdgeDataDTO>>.Failure(stopParentResult.Error);
+
+					if (!toid.Equals(stopParentResult.Value.Id))
+					{
+						Console.WriteLine();
+					}
 
 					allStops.Add(stopParentResult.Value);
 				}
@@ -626,7 +748,7 @@ namespace Urbanflow.src.backend.models.gtfs
 			return Result<string>.Success(route.ShortName);
 		}
 
-		private Result<Stop> GetParentStopOfStop(Guid id)
+		public Result<Stop> GetParentStopOfStop(Guid id)
 		{
 			var stop = Stops.Where(x => x.Id == id).FirstOrDefault();
 			if (stop != null && stop.ParentStation != null)
@@ -682,8 +804,8 @@ namespace Urbanflow.src.backend.models.gtfs
 						if (!stopDict.TryGetValue(toStopTime.StopId, out var toStop))
 							return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Failure($"Stop not found (ID: {toStopTime.StopId}).");
 
-						var departureTime = TimeSpan.Parse(fromStopTime.DepartureTime);
-						var arrivalTime = TimeSpan.Parse(toStopTime.ArrivalTime);
+						var departureTime = ParseGtfsTime(fromStopTime.DepartureTime);
+						var arrivalTime = ParseGtfsTime(toStopTime.ArrivalTime);
 
 						int travelTimeMinutes = (int)(arrivalTime - departureTime).TotalMinutes;
 
@@ -750,7 +872,8 @@ namespace Urbanflow.src.backend.models.gtfs
 
 			return Result<Dictionary<Guid, List<(Guid Destination, double Weight)>>>.Success(connectivityMatrix);
 		}
-		
+
+
 
 		internal Result<List<Guid>> GatherAllStopIds()
 		{
@@ -1195,6 +1318,53 @@ namespace Urbanflow.src.backend.models.gtfs
 			}
 		}
 
-		
+		public Result<List<(byte r, byte g, byte b)>> GatherRouteColors()
+		{
+			List<int?> colors = Routes.Select(r => r.Color).Where(c => c != null).ToList();
+			if (colors == null)
+				return Result<List<(byte r, byte g, byte b)>>.Failure("No colors found for routes");
+
+			List<(byte r, byte g, byte b)> rgbColors = [];
+
+			foreach (var color in colors) {
+				byte a = (byte)((color >> 24) & 0xFF);
+				byte r = (byte)((color >> 16) & 0xFF);
+				byte g = (byte)((color >> 8) & 0xFF);
+				byte b = (byte)(color & 0xFF);
+
+				rgbColors.Add((r,g,b));
+			}
+
+			return Result<List<(byte r, byte g, byte b)>>.Success(rgbColors);			
+		}
+
+		internal Result<List<NodeDataDTO>> GatherStops(in db_ga.Genome genome, IReadOnlyList<Guid> allStops)
+		{
+			List<Guid> concatedStopIds = new List<Guid>(allStops);
+			concatedStopIds.AddRange(genome.GetStopIdList());
+
+			List<NodeDataDTO> nodes = [];
+
+			HashSet<Guid> uniqueStopIds = new HashSet<Guid>(concatedStopIds);
+
+			foreach (var stopId in uniqueStopIds)
+			{
+				var id = stopId;
+				var stop = Stops.FirstOrDefault(s => s.Id.Equals(stopId));
+				if (stop == null)
+					return Result<List<NodeDataDTO>>.Failure("No stop found with the id: " + stopId);
+
+				var node = new NodeDataDTO()
+				{
+					Stop = stop
+				};
+				nodes.Add(node);
+			}
+
+			if(nodes.Count == 0)
+				return Result<List<NodeDataDTO>>.Failure("Couldn't gather all the stops");
+
+			return Result<List<NodeDataDTO>>.Success(nodes);
+		}
 	}
 }

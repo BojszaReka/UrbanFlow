@@ -136,6 +136,7 @@ namespace Urbanflow.src.backend.services
 					{
 						return Result<Graph>.Failure(fromNodeResult.Error);
 					}
+					
 
 					var toNodeResult = newGraph.GetNodeByStopId(edgeData.ToStopId);
 					if (toNodeResult.IsFailure)
@@ -160,7 +161,80 @@ namespace Urbanflow.src.backend.services
 			{
 				return Result<Graph>.Failure(ex.Message);
 			}
-		} 
+		}
+
+		public static Result<Graph> CreateGraphFromGenome(Guid workflowId, in DifferentiatedRouteGraphDataDTO graphData, string name, EGraphType type, string routeId = "")
+		{
+			try
+			{
+				Graph newGraph = type == EGraphType.Route
+					? new Graph(workflowId, name, type, routeId)
+					: new Graph(workflowId, name, type);
+
+				// Add nodes
+				foreach (var nodeData in graphData.NodeData)
+				{
+					var node = new Node(nodeData.Stop);
+					newGraph.AddNode(node);
+				}
+
+				bool withcolor = graphData.Colors != null;
+				int colorCount = graphData.Colors.Count;
+				int colorIndex = 0;
+
+				// Add edges
+				foreach (var routeEdgeData in graphData.EdgesDataGrouppedByRoutes)
+				{
+					foreach(var edgeData in routeEdgeData)
+					{
+						var fromNodeResult = newGraph.GetNodeByStopId(edgeData.FromStopId);
+						if (fromNodeResult.IsFailure)
+						{
+							return Result<Graph>.Failure(fromNodeResult.Error);
+						}
+
+						var toNodeResult = newGraph.GetNodeByStopId(edgeData.ToStopId);
+						if (toNodeResult.IsFailure)
+						{
+							return Result<Graph>.Failure(toNodeResult.Error);
+						}
+
+						var fromNode = fromNodeResult.Value;
+						var toNode = toNodeResult.Value;
+						if (fromNode == null || toNode == null)
+							return Result<Graph>.Failure("Invalid edge reference: node not found.");
+
+						if (withcolor)
+						{
+							(byte r, byte g, byte b) = graphData.Colors[colorIndex];
+
+							newGraph.AddEdge(new Edge(fromNode.Id, toNode.Id, edgeData.TravelTimeMinutes, r, g, b));
+						}
+						else
+						{
+							var edge = new Edge(fromNode.Id, toNode.Id, edgeData.TravelTimeMinutes);
+							newGraph.AddEdge(new Edge(fromNode.Id, toNode.Id, edgeData.TravelTimeMinutes));
+						}						
+					}
+
+					if (withcolor)
+					{
+						colorIndex++;
+
+						if (colorIndex == colorCount)
+							colorIndex = 0;
+					}
+				}
+
+				newGraph.SaveGraph();
+
+				return Result<Graph>.Success(newGraph);
+			}
+			catch (Exception ex)
+			{
+				return Result<Graph>.Failure(ex.Message);
+			}
+		}
 
 	}
 }

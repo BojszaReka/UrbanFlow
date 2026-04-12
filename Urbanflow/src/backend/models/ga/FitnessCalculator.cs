@@ -2,13 +2,14 @@
 using System.Collections.Generic;
 using System.Text;
 using Urbanflow.src.backend.models.util;
+using Urbanflow.src.backend.services;
 
 namespace Urbanflow.src.backend.models.ga
 {
 	internal class FitnessCalculator : IDisposable
 	{
 
-		private List<GenomeRoute> AllRoutes { get; set; }
+		private List<GenomeRoute> AllRoutes { get; set; } = [];
 		private Dictionary<(Guid, int, int), List<double>> AtStopFromRouteToRouteWaitingTimes { get; set; } = [];
 
 		public double UnMetStopPercentage { get; private set; } = 0.0;
@@ -20,28 +21,29 @@ namespace Urbanflow.src.backend.models.ga
 			AtStopFromRouteToRouteWaitingTimes = [];
 		}
 
-		public Result<double> CalculateFitnessValue(in Genome genome, in OptimizationParameters parameters, in NetworkInformation network, string step = "")
+		public Result<double> CalculateFitnessValue(in Genome genome, in OptimizationParameters parameters, in NetworkInformation network, string step = "", bool withLogging = false)
 		{
 			try
 			{
 				switch (step)
 				{
 					case "route":
-						return CalculateRouteFitnessValue(parameters, network, genome);
+						return CalculateRouteFitnessValue(parameters, network, genome, withLogging);
 
 					case "time":
-						return CalculateTimeFitnessValue(parameters, network, genome);
+						return CalculateTimeFitnessValue(parameters, network, genome, withLogging);
+					default:
+						throw new Exception("No such step as: " + step);
 				}
 				
 			}
 			catch (Exception ex)
 			{
-				Result<double>.Failure("Fitness value calculation failed: " + ex.Message);
+				return Result<double>.Failure("Fitness value calculation failed: " + ex.Message);
 			}
-			return Result<double>.Failure("No such step as: " + step);
 		}
 
-		private Result<double> CalculateRouteFitnessValue(in OptimizationParameters parameters, in NetworkInformation network, in Genome genome)
+		private Result<double> CalculateRouteFitnessValue(in OptimizationParameters parameters, in NetworkInformation network, in Genome genome, bool withLogging)
 		{
 			try
 			{
@@ -59,19 +61,22 @@ namespace Urbanflow.src.backend.models.ga
 					return Result<double>.Failure("No routes to work with.");
 				}
 
-				Result<double> result= CalculateRouteFitness(parameters, network);
+				Result<double> result= CalculateRouteFitness(parameters, network, withLogging);
 				if (result.IsFailure) return result;
 				fitnessValue += result.Value;
 
 				//Hard Constraint: Transfer count over allowed treshold
-				result = CalculateHardConstraint_Route_Transfer(parameters);
+				result = CalculateHardConstraint_Route_Transfer(parameters, withLogging);
 				if (result.IsFailure) return result;
 				fitnessValue += result.Value;
 
 				//Soft Constraint: Avarage travel time is optimal
-				result = CalculateSoftConstraint_Route_Traveltime(network);
+				result = CalculateSoftConstraint_Route_Traveltime(network, withLogging);
 				if (result.IsFailure) return result;
 				fitnessValue += result.Value;
+
+				if(withLogging)
+					OptimizationLoggerService.Instance.Log($"The value of 'route' fitness constrains: {fitnessValue}.");
 
 				return Result<double>.Success(fitnessValue);
 			}
@@ -81,17 +86,21 @@ namespace Urbanflow.src.backend.models.ga
 			}
 		}
 
-		private Result<double> CalculateTimeFitnessValue(in OptimizationParameters parameters, in NetworkInformation network, in Genome genome)
+		private Result<double> CalculateTimeFitnessValue(in OptimizationParameters parameters, in NetworkInformation network, in Genome genome, bool withLogging)
 		{
 			try
 			{
 				double fitnessValue = 0;
-
-				AllRoutes = [.. genome.MutableRoutes];
-				int baseCount = AllRoutes.Count;
+				int baseCount = 0;
+				foreach (var route in genome.MutableRoutes)
+				{
+					route.RouteIndex = baseCount++;
+					AllRoutes.Add(route);
+				}				
 				foreach (var staticRoute in network.StaticRoutes)
 				{
 					staticRoute.RouteIndex = baseCount++;
+					AllRoutes.Add(staticRoute);
 				}
 
 				if (AllRoutes == null || AllRoutes.Count == 0)
@@ -105,19 +114,22 @@ namespace Urbanflow.src.backend.models.ga
 				}
 
 				//Soft Constraint: Optimize the waiting time at changes
-				Result<double> result = CalculateSoftConstraint_Time_Wait(parameters, network);
+				Result<double> result = CalculateSoftConstraint_Time_Wait(parameters, network, withLogging);
 				if (result.IsFailure) return result;
 				fitnessValue += result.Value;
 
 				//Soft Constraint: Optimize the total time the travel takes, including waiting for changes
-				result = CalculateSoftConstraint_Time_TotalTravel(parameters, network);
+				result = CalculateSoftConstraint_Time_TotalTravel(parameters, network, withLogging);
 				if (result.IsFailure) return result;
 				fitnessValue += result.Value;
 
 				//Hard Constraint: The busses needed to aperate at the same time are below fleet size
-				result = CalculateHardConstraint_Time_Fleet(parameters);
+				result = CalculateHardConstraint_Time_Fleet(parameters, withLogging);
 				if (result.IsFailure) return result;
 				fitnessValue += result.Value;
+
+				if(withLogging)
+					OptimizationLoggerService.Instance.Log($"The value of 'time' fitness constrains: {fitnessValue}.");
 
 				return Result<double>.Success(fitnessValue);
 			}
@@ -127,7 +139,7 @@ namespace Urbanflow.src.backend.models.ga
 			}
 		}
 
-		private Result<double> CalculateHardConstraint_Time_Fleet(in OptimizationParameters parameters)
+		private Result<double> CalculateHardConstraint_Time_Fleet(in OptimizationParameters parameters, bool withLogging)
 		{
 			try
 			{
@@ -223,6 +235,9 @@ namespace Urbanflow.src.backend.models.ga
 					penalty = (maxBuses - threshold) * 100;
 				}
 
+				if(withLogging)
+					OptimizationLoggerService.Instance.Log($"The maximum number of busses needed at one time: {maxBuses}, penalty: {penalty}.");
+
 				return Result<double>.Success(penalty);
 			}
 			catch (Exception ex)
@@ -231,7 +246,7 @@ namespace Urbanflow.src.backend.models.ga
 			}
 		}
 
-		private Result<double> CalculateSoftConstraint_Time_TotalTravel(in OptimizationParameters parameters, in NetworkInformation network)
+		private Result<double> CalculateSoftConstraint_Time_TotalTravel(in OptimizationParameters parameters, in NetworkInformation network, bool withLogging)
 		{
 			try
 			{
@@ -472,13 +487,20 @@ namespace Urbanflow.src.backend.models.ga
 				double maxTravel = parameters.Fitness_MaximumTravelTimeParameter;
 				double maxWait = parameters.Fitness_MaximumWaitingMinutesParameter;
 
-				double travelPenalty = maxTravel > 0 ? Math.Min(1.0, T_travel / maxTravel) : 0;
-				double waitingPenalty = maxWait > 0 ? Math.Min(1.0, AvgWaitingTime / maxWait) : 0;
+				double travelPenalty = maxTravel > 0 ? Math.Min(1.0, (double)T_travel / (double)maxTravel) : 0;
+				double waitingPenalty = maxWait > 0 ? Math.Min(1.0,(double) AvgWaitingTime / (double)maxWait) : 0;
 
 				double alpha = 0.6;
 				double beta = 0.4;
 
 				double fitness = alpha * travelPenalty + beta * waitingPenalty;
+
+				if (withLogging)
+				{
+					OptimizationLoggerService.Instance.Log($"Avarage waiting time: {AvgWaitingTime}, avarage intra travel time: {T_intra}, avarage inter travel time: {T_intra}, avarage travel time: {T_travel}.");
+					OptimizationLoggerService.Instance.Log($"Travel time penalty: {travelPenalty}, waiting time penalty: {waitingPenalty}.");
+					OptimizationLoggerService.Instance.Log($"Calculated fitness for travel time: {fitness}.");
+				}
 
 				return Result<double>.Success(Math.Clamp(fitness, 0, 1));
 			}
@@ -488,7 +510,7 @@ namespace Urbanflow.src.backend.models.ga
 			}
 		}
 
-		private Result<double> CalculateSoftConstraint_Time_Wait(in OptimizationParameters parameters, in NetworkInformation network)
+		private Result<double> CalculateSoftConstraint_Time_Wait(in OptimizationParameters parameters, in NetworkInformation network, bool withLogging)
 		{
 			try
 			{
@@ -589,21 +611,38 @@ namespace Urbanflow.src.backend.models.ga
 
 				double AvgWaitingTimePerChange = AllWaitingTime / (double)PossibleChangeCounter;
 				double AvgBestWaitingTimePerChange = BestChangeTimeSum / (double)BestChangeCount;
+
 				double WaitingTimeDeviationPercentage = Math.Abs(AvgWaitingTimePerChange / parameters.Fitness_MaximumWaitingMinutesParameter - 1);
 				double BestWaitingTimeDeviationPercentage = Math.Abs(AvgBestWaitingTimePerChange / parameters.Fitness_MaximumWaitingMinutesParameter - 1);
 
 				double UnmanagableChangePercentage = (double)UnmanagableChangeCounter / (double)PossibleChangeCounter;
 
-				double waitingPenalty = Math.Min(1.0, Math.Abs(AvgWaitingTimePerChange / parameters.Fitness_MaximumWaitingMinutesParameter - 1));
+				//double waitingPenalty = Math.Min(1.0, Math.Abs(AvgWaitingTimePerChange / parameters.Fitness_MaximumWaitingMinutesParameter));
+				double waitingPenalty = Math.Abs(AvgWaitingTimePerChange / parameters.Fitness_MaximumWaitingMinutesParameter);
 
-				double bestWaitingPenalty = Math.Min(1.0, Math.Abs(AvgBestWaitingTimePerChange / parameters.Fitness_MaximumWaitingMinutesParameter - 1));
+				//double bestWaitingPenalty = Math.Min(1.0, Math.Abs(AvgBestWaitingTimePerChange / parameters.Fitness_MaximumWaitingMinutesParameter));
+				double bestWaitingPenalty = Math.Abs(AvgBestWaitingTimePerChange / parameters.Fitness_MaximumWaitingMinutesParameter);
 
-				double unmanageablePenalty = PossibleChangeCounter == 0 ? 1.0 : (double)UnmanagableChangeCounter / PossibleChangeCounter;
+				double unmanageablePenalty = PossibleChangeCounter == 0 ? 1.0 : (double)UnmanagableChangeCounter /PossibleChangeCounter;
 
 				double fitness =
 					waitingPenalty +
 					bestWaitingPenalty +
 					unmanageablePenalty;
+
+				if (withLogging)
+				{
+					OptimizationLoggerService.Instance.Log($"Avarage waiting time per change: {AvgWaitingTimePerChange}.");
+					OptimizationLoggerService.Instance.Log($"Avarage of the best waiting times for changes: {AvgBestWaitingTimePerChange}.");
+					OptimizationLoggerService.Instance.Log($"Waiting time deviations from avarage: {WaitingTimeDeviationPercentage}%.");
+					OptimizationLoggerService.Instance.Log($"Waiting time deviations  for best changes from avarage: {BestWaitingTimeDeviationPercentage}%.");
+					OptimizationLoggerService.Instance.Log($"number of unmanagable changes: {UnmanagableChangeCounter}.");
+					OptimizationLoggerService.Instance.Log($"Percentage of unmanagable changes in all changes: {UnmanagableChangeCounter / PossibleChangeCounter}%.");
+					OptimizationLoggerService.Instance.Log($"Waiting penalty: {waitingPenalty}, best waiting penaly: {bestWaitingPenalty}, unmanagable change penalties: {unmanageablePenalty}.");
+
+					OptimizationLoggerService.Instance.Log($"The calculated waiting fitness: {fitness}.");
+				}
+				
 
 				return Result<double>.Success(fitness);
 			}
@@ -613,7 +652,7 @@ namespace Urbanflow.src.backend.models.ga
 			}
 		}
 
-		private Result<double> CalculateHardConstraint_Route_Transfer(in OptimizationParameters parameters)
+		private Result<double> CalculateHardConstraint_Route_Transfer(in OptimizationParameters parameters, bool withLogging)
 		{
 			//Hard Constraint: Transfer count over allowed treshold
 			var routes = AllRoutes;
@@ -728,10 +767,16 @@ namespace Urbanflow.src.backend.models.ga
 				? 100 * (maxShortestPathEdges - changeCount)
 				: 0d;
 
+			if (withLogging)
+			{
+				OptimizationLoggerService.Instance.Log($"Maximum needed changes in the network: {changeCount}.");
+				OptimizationLoggerService.Instance.Log($"Change penalty: {penalty}.");
+			}
+
 			return Result<double>.Success(penalty);
 		}
 
-		private Result<double> CalculateSoftConstraint_Route_Traveltime(in NetworkInformation network)
+		private Result<double> CalculateSoftConstraint_Route_Traveltime(in NetworkInformation network, bool withLogging)
 		{
 			var routes = AllRoutes;
 			double alpha = 0.5;
@@ -862,6 +907,13 @@ namespace Urbanflow.src.backend.models.ga
 
 			double result = alpha * intraScore + beta * interScore;
 
+			if (withLogging)
+			{
+				OptimizationLoggerService.Instance.Log($"Avarage intra travel time: {T_intra}, intra score: {intraScore}.");
+				OptimizationLoggerService.Instance.Log($"Avarage inter travel time: {T_inter}, inter score {interScore}.");
+				OptimizationLoggerService.Instance.Log($"Travel time fitness: {result}.");
+			}
+
 			return Result<double>.Success(Math.Clamp(result, 0, 1));
 		}
 
@@ -888,7 +940,7 @@ namespace Urbanflow.src.backend.models.ga
 		//Hard Constraint: Are the first and last stops terminals
 		//Hard Constraint: Are the routes loop free
 		//Hard Constraint: Redudancy of routes over allowed treshold
-		private Result<double> CalculateRouteFitness(in OptimizationParameters parameters, in NetworkInformation network)
+		private Result<double> CalculateRouteFitness(in OptimizationParameters parameters, in NetworkInformation network, bool withLogging)
 		{
 			var routes = AllRoutes;
 			int routeCount = routes.Count;
@@ -908,6 +960,10 @@ namespace Urbanflow.src.backend.models.ga
 			int terminalMistakes = 0;
 			double lengthDeviation = 0;
 			double deviationThreshold = 0.5;
+			int OneWayCoutner = 0;
+			int minRouteLength = int.MaxValue;
+			int maxRouteLength = int.MinValue;
+			int minmumLengthViolationCounter = 0;
 
 			double invTargetLength = 1.0 / parameters.Fitness_RouteLengthParameter;
 
@@ -916,8 +972,41 @@ namespace Urbanflow.src.backend.models.ga
 
 			foreach (var route in routes)
 			{
+				if (route.OneWay)
+				{
+					OneWayCoutner++;
+				}
+
 				var onRoute = route.OnRoute;
 				var backRoute = route.BackRoute;
+
+				if(onRoute.Count < minRouteLength)
+				{
+					minRouteLength = onRoute.Count;
+				}
+				if (onRoute.Count > maxRouteLength)
+				{
+					maxRouteLength = onRoute.Count;
+				}
+
+				if (!route.OneWay && backRoute.Count < minRouteLength)
+				{
+					minRouteLength = backRoute.Count;
+				}
+				if (!route.OneWay && backRoute.Count > maxRouteLength)
+				{
+					maxRouteLength = backRoute.Count;
+				}
+
+				if (onRoute.Count < parameters.Fitness_MinimumRouteLengthParameter)
+				{
+					minmumLengthViolationCounter++;
+				}
+
+				if (!route.OneWay && backRoute.Count < parameters.Fitness_MinimumRouteLengthParameter)
+				{
+					minmumLengthViolationCounter++;
+				}
 
 				var routeStops = new HashSet<Guid>();
 				routeStopSets.Add(routeStops);
@@ -1098,6 +1187,13 @@ namespace Urbanflow.src.backend.models.ga
 
 			double allConnections = Factorial(districts.Count / 3);
 
+			double oneWayPenalty = 0;
+			var oneWayPercentage = (double)((double)OneWayCoutner / (double)AllRoutes.Count);
+			if (parameters.Genome_AllowOneWayRoutes && oneWayPercentage > (double)parameters.Genome_OneWayRoutePercentageTreshold/100.0)
+			{
+				oneWayPenalty = oneWayPercentage * 100.0;
+			}
+
 			UnMetStopPercentage = (double)unmetStops.Count / (double)network.AllStops.Count;
 			UnMetStopList = [.. unmetStops];
 
@@ -1107,15 +1203,28 @@ namespace Urbanflow.src.backend.models.ga
 				+ loopCount * 100
 				+ terminalMistakes * 1000
 				+ unmetStops.Count * 1000
-				+ (lengthDeviation == 0 ? 0 : lengthDeviation / routeCount)
+				+ oneWayPenalty
+				+ (lengthDeviation == 0 ? 0 : Math.Abs((lengthDeviation / routeCount)-1))
+				+ minmumLengthViolationCounter * 10
 				+ districtConnections / allConnections
-				+ hubGini
+				+ Math.Abs(hubGini-1)
 				+ terminalDeviation;
 
-			if (score < 1500.0)
+			if (withLogging)
 			{
-				var temp = districtConnections / allConnections;
-				Console.WriteLine();
+				OptimizationLoggerService.Instance.Log($"Redundant pairs: {redundantPairs}, penalty: {redundantPairs*10}.");
+				OptimizationLoggerService.Instance.Log($"Number of loops in the routes: {loopCount}, penalty: {loopCount*100}.");
+				OptimizationLoggerService.Instance.Log($"Number of one way routes: {OneWayCoutner}, percentage: {oneWayPercentage}, penalty: {oneWayPenalty}.");
+				OptimizationLoggerService.Instance.Log($"Violated terminal hard constrainst: {terminalMistakes}, penalty: {terminalMistakes*1000}.");
+				OptimizationLoggerService.Instance.Log($"Number of unmet stops: {unmetStops.Count}, penalty: {unmetStops.Count*1000}.");
+				OptimizationLoggerService.Instance.Log($"Route length deviation: {(lengthDeviation == 0 ? 0 : Math.Abs((lengthDeviation / routeCount) - 1))}");
+				OptimizationLoggerService.Instance.Log($"Minimum route length: {minRouteLength}, max route length: {maxRouteLength}");
+				OptimizationLoggerService.Instance.Log($"Minimum route length violation: {minmumLengthViolationCounter}, penalty: {minmumLengthViolationCounter * 10}");
+				OptimizationLoggerService.Instance.Log($"Connections between districts: {districtConnections / allConnections}");
+				OptimizationLoggerService.Instance.Log($"Gini index of hubs: {Math.Abs(hubGini - 1)}");
+				OptimizationLoggerService.Instance.Log($"Deviation of terminal usage: {terminalDeviation}");
+				OptimizationLoggerService.Instance.Log($"Fitness score: {score}");
+
 			}
 
 			return Result<double>.Success(score);

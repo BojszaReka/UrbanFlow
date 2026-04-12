@@ -194,10 +194,9 @@ namespace Urbanflow.src.backend.services
 			List<(int gen, (double best, double avg, double worst))> FitnessValuesPerGenerations = [];
 			Result<Genome> result;
 
-			int takeCount = (int)((double)OptimizationSettings.PopulationSize * 0.35);
+			int takeCount = OptimizationSettings.PopulationSize / 10;
 			if (doItOldWay)
 			{
-				takeCount = OptimizationSettings.PopulationSize / 10;
 				OptimizationLoggerService.Instance.Log("Using legacy GA mode", LogLevel.Warning);
 			}
 

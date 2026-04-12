@@ -45,11 +45,27 @@
                          HorizontalAlignment="Center"
                          Margin="0,0,0,12"
                          Grid.Row="0"
-                         Height="50">
-                <Button Content="Teljes Hálózat Grafikon"
-                         Style="{StaticResource AccentGreenButton}" Height="33" Margin="5" Width="180" />
-                <Button Content="Specifikus Útvonal Grafikon"
-                         Style="{StaticResource GreyButton}" Height="33"  Margin="5" Width="180"/>
+                         Height="30">
+                <TextBlock Text="Megjelenített gráf: "
+                FontSize="15" Foreground="{StaticResource GreyBrush}" Padding="5" TextWrapping="Wrap"/>
+                <ComboBox Grid.Column="1"
+                          x:Uid="GraphComboBox"
+                          x:Name="GraphComboBox"
+                          
+                   Foreground="{StaticResource TextLightBrush}"
+                   Background="White"
+                   BorderThickness="0"
+                   Padding="4"
+                   HorizontalContentAlignment="Left"
+                   VerticalContentAlignment="Center"
+                   HorizontalAlignment="Stretch"
+                   Margin="0,0,8,0"
+                   Cursor="Hand"
+                   Width="Auto"
+                   SelectionChanged="GraphComboBox_SelectionChanged">
+                    <!-- Hint item (disabled or default) -->
+                    <ComboBoxItem x:Name="HintItem"  IsEnabled="False" IsSelected="True" IsHitTestVisible="False" Foreground="Gray">Gráf választása</ComboBoxItem>
+                </ComboBox>
             </StackPanel>
 
             <!-- Graph Canvas -->
@@ -113,9 +129,15 @@
                         <ColumnDefinition Width="4*"/>
                     </Grid.ColumnDefinitions>
 
-                    <Button Grid.Column="0" Content="Csomópont hozzáadása" Style="{StaticResource AccentGreenButton}" Height="25" Margin="3" Width="Auto" MinWidth="150" HorizontalAlignment="Stretch"/>
+                    <Button 
+                          x:Uid="btn_AddNode"
+                          x:Name="btn_AddNode"
+                           Grid.Column="0" Content="Csomópont hozzáadása" Style="{StaticResource AccentGreenButton}" Height="25" Margin="3" Width="Auto" MinWidth="150" HorizontalAlignment="Stretch"/>
 
-                    <Button Grid.Column="1"  Content="Él hozzáadása" Style="{StaticResource AccentGreenButton}" Height="25" Margin="3" Width="Auto" MinWidth="100" HorizontalAlignment="Stretch"/>
+                    <Button 
+                          x:Uid="btn_AddEdge"
+                          x:Name="btn_AddEdge"
+                          Grid.Column="1"  Content="Él hozzáadása" Style="{StaticResource AccentGreenButton}" Height="25" Margin="3" Width="Auto" MinWidth="100" HorizontalAlignment="Stretch"/>
                 </Grid>
                 <StackPanel >
 
@@ -132,7 +154,10 @@
                     <StackPanel Margin="6,4,0,0" >
                         <TextBlock Text="Szerkeszteni kívánt csomópont"
                                     FontSize="12" Foreground="{StaticResource GreyBrush}" TextWrapping="Wrap"/>
-                        <ComboBox Grid.Column="1"
+                        <ComboBox 
+                          x:Uid="NodeComboBox"
+                          x:Name="NodeComboBox"
+                          Grid.Column="1"
                            Foreground="{StaticResource TextLightBrush}"
                            Background="White"
                            BorderThickness="0"
@@ -154,16 +179,10 @@
                         <StackPanel >
                             <StackPanel Margin="0,10,0,5">
                                 <TextBlock Text="Név" FontSize="12" Foreground="{StaticResource GreyBrush}"/>
-                                <TextBox Text="Központi pályaudvar"
-                                          Margin="0,2,0,0"
-                                          Padding="4"
-                                          FontSize="13"
-                                          Background="White"
-                                          BorderBrush="White"/>
-                            </StackPanel>
-                            <StackPanel Margin="0,5,0,5">
-                                <TextBlock Text="Helyszín" FontSize="12" Foreground="{StaticResource GreyBrush}"/>
-                                <TextBox Text="Város, Fő utca 123"
+                                <TextBox 
+                          x:Uid="txt_NodeName"
+                          x:Name="txt_NodeName"
+                          Text="Központi pályaudvar"
                                           Margin="0,2,0,0"
                                           Padding="4"
                                           FontSize="13"
@@ -171,7 +190,10 @@
                                           BorderBrush="White"/>
                             </StackPanel>
                         </StackPanel>
-                        <Button Content="Mentés" HorizontalAlignment="Center" Margin="0,10,0,10" Style="{StaticResource AccentGreenButton}" Height="25"/>
+                        <Button 
+                          x:Uid="btn_SaveNode"
+                          x:Name="btn_SaveNode"
+                           Content="Mentés" HorizontalAlignment="Center" Margin="0,10,0,10" Style="{StaticResource AccentGreenButton}" Height="25"/>
                     </StackPanel>
                 </Expander>
 
@@ -185,7 +207,10 @@
                     <StackPanel Margin="6,4,0,0" >
                         <TextBlock Text="Szerkeszteni kívánt él"
                                     FontSize="12" Foreground="{StaticResource GreyBrush}" TextWrapping="Wrap" Margin="0,0,0,5"/>
-                        <ComboBox Grid.Column="1"
+                        <ComboBox 
+                          x:Uid="EdgeComboBox"
+                          x:Name="EdgeComboBox"
+                          Grid.Column="1"
                            Foreground="{StaticResource TextLightBrush}"
                            Background="White"
                            BorderThickness="0"
@@ -207,7 +232,10 @@
                         <StackPanel >
                             <StackPanel Margin="0,10,0,5">
                                 <TextBlock Text="Honnan" FontSize="12" Foreground="{StaticResource GreyBrush}" Margin="0,0,0,2"/>
-                                <ComboBox Grid.Column="1"
+                                <ComboBox 
+                          x:Uid="EdgeComboBox_From"
+                          x:Name="EdgeComboBox_From"
+                          Grid.Column="1"
                                    Foreground="{StaticResource TextLightBrush}"
                                    Background="White"
                                    BorderThickness="0"
@@ -229,7 +257,10 @@
                             </StackPanel>
                             <StackPanel Margin="0,5,0,5">
                                 <TextBlock Text="Hova" FontSize="12" Foreground="{StaticResource GreyBrush}" Margin="0,0,0,2"/>
-                                <ComboBox Grid.Column="1"
+                                <ComboBox 
+                          x:Uid="EdgeComboBox_To"
+                          x:Name="EdgeComboBox_To"
+                          Grid.Column="1"
                                    Foreground="{StaticResource TextLightBrush}"
                                    Background="White"
                                    BorderThickness="0"
@@ -241,7 +272,7 @@
                                    Cursor="Hand">
 
                                     <!-- Hint item (disabled or default) -->
-                                    <ComboBoxItem IsEnabled="False" IsSelected="True" IsHitTestVisible="False" Foreground="Gray">Csomópont választása</ComboBoxItem>
+                                    <ComboBoxItem x:Name="HintItem_EdgeTo" IsEnabled="False" IsSelected="True" IsHitTestVisible="False" Foreground="Gray">Csomópont választása</ComboBoxItem>
 
                                     <!-- Actual options -->
                                     <ComboBoxItem>1es megálló</ComboBoxItem>
@@ -251,14 +282,20 @@
                             </StackPanel>
                             <StackPanel Margin="0,5,0,5">
                                 <TextBlock Text="Menetidő (perc)" FontSize="12" Foreground="{StaticResource GreyBrush}" Margin="0,0,0,2"/>
-                                <TextBox Text="12"
+                                <TextBox 
+                                          x:Uid="txt_EdgeTravelTime"
+                                          x:Name="txt_EdgeTravelTime"
+                                          Text="12"
                                           Margin="0,2,0,0"
                                           Padding="4"
                                           FontSize="13"
                                           Background="White"
                                           BorderBrush="White"/>
                             </StackPanel>
-                            <Button Content="Mentés" HorizontalAlignment="Center" Margin="0,10,0,10" Style="{StaticResource AccentGreenButton}" Height="25"/>
+                            <Button 
+                              x:Uid="btn_EdgeSave"
+                              x:Name="btn_EdgeSave"
+                              Content="Mentés" HorizontalAlignment="Center" Margin="0,10,0,10" Style="{StaticResource AccentGreenButton}" Height="25"/>
                         </StackPanel>
                     </StackPanel>
                 </Expander>

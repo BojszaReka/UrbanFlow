@@ -86,7 +86,7 @@ namespace Urbanflow.src.backend.models.graph
 
 		public void SaveToDatabase()
 		{
-			DatabaseContext context = new();
+			using var context = new DatabaseContext();
 			var existingNode = context.Nodes?.Find(Id);
 			if (existingNode is null)
 			{
